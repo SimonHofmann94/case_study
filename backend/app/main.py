@@ -5,14 +5,18 @@ This module sets up the FastAPI application with all necessary middleware,
 routers, and configuration for the Procurement AI MVP.
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
+from app.utils.rate_limit import limiter
+from app.auth.router import router as auth_router
 
 # Initialize Sentry if DSN is provided
 if settings.SENTRY_DSN:
@@ -35,6 +39,10 @@ app = FastAPI(
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
 )
+
+# Add rate limiter state to app
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configure CORS
 app.add_middleware(
@@ -86,8 +94,5 @@ async def shutdown_event():
     print(f"👋 Shutting down {settings.APP_NAME}")
 
 
-# TODO: Add routers here as they are created
-# from app.routers import auth, requests, offers
-# app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
-# app.include_router(requests.router, prefix="/requests", tags=["Requests"])
-# app.include_router(offers.router, prefix="/offers", tags=["Offers"])
+# Include routers
+app.include_router(auth_router)
