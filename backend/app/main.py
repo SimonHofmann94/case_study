@@ -16,7 +16,22 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.utils.rate_limit import limiter
+
+# Import all models to register them with SQLAlchemy before importing routers
+# This ensures relationship strings can be resolved
+from app.models import (  # noqa: F401
+    User,
+    CommodityGroup,
+    Request as RequestModel,
+    OrderLine,
+    StatusHistory,
+    Attachment,
+)
+
 from app.auth.router import router as auth_router
+from app.routers.requests import router as requests_router
+from app.routers.commodity_groups import router as commodity_groups_router
+from app.routers.offers import router as offers_router
 
 # Initialize Sentry if DSN is provided
 if settings.SENTRY_DSN:
@@ -96,3 +111,6 @@ async def shutdown_event():
 
 # Include routers
 app.include_router(auth_router)
+app.include_router(requests_router)
+app.include_router(commodity_groups_router)
+app.include_router(offers_router)

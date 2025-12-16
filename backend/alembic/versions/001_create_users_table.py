@@ -20,9 +20,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Create users table with all necessary columns and constraints."""
-    # Create UserRole enum type
+    # Create UserRole enum type (if not exists for idempotency)
     op.execute("""
-        CREATE TYPE userrole AS ENUM ('requestor', 'procurement_team')
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'userrole') THEN
+                CREATE TYPE userrole AS ENUM ('requestor', 'procurement_team');
+            END IF;
+        END$$;
     """)
 
     # Create users table
@@ -32,7 +37,7 @@ def upgrade() -> None:
         sa.Column('email', sa.String(length=255), nullable=False, unique=True),
         sa.Column('hashed_password', sa.String(length=255), nullable=False),
         sa.Column('full_name', sa.String(length=255), nullable=False),
-        sa.Column('role', postgresql.ENUM('requestor', 'procurement_team', name='userrole'), nullable=False),
+        sa.Column('role', postgresql.ENUM('requestor', 'procurement_team', name='userrole', create_type=False), nullable=False),
         sa.Column('department', sa.String(length=100), nullable=True),
         sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('true')),
         sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),

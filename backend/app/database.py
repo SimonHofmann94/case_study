@@ -56,7 +56,15 @@ def init_db():
     This function creates all tables defined in SQLAlchemy models.
     In production, use Alembic migrations instead.
     """
-    from app.models import user  # noqa: F401 - Import to register models
+    # Import all models to register them with SQLAlchemy
+    from app.models import (  # noqa: F401
+        User,
+        CommodityGroup,
+        Request,
+        OrderLine,
+        StatusHistory,
+        Attachment,
+    )
 
     Base.metadata.create_all(bind=engine)
-    print("✅ Database tables created successfully")
+    print("Database tables created successfully")

@@ -5,7 +5,8 @@ Uses Pydantic Settings for type-safe configuration management
 from environment variables.
 """
 
-from typing import List
+from typing import List, Union
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,8 +31,23 @@ class Settings(BaseSettings):
     # CORS Configuration
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
+    @field_validator("CORS_ORIGINS", "ALLOWED_FILE_TYPES", mode="before")
+    @classmethod
+    def parse_list_fields(cls, v: Union[str, List[str]]) -> List[str]:
+        """Parse list fields from comma-separated string or list."""
+        if isinstance(v, str):
+            return [item.strip() for item in v.split(",") if item.strip()]
+        return v
+
     # OpenAI Configuration
     OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_TEMPERATURE: float = 0.1
+    OPENAI_MAX_TOKENS: int = 2000
+
+    # AI Feature Flags
+    AI_USE_TOON_FORMAT: bool = True
+    AI_FALLBACK_TO_JSON: bool = True
 
     # Sentry Configuration
     SENTRY_DSN: str = ""

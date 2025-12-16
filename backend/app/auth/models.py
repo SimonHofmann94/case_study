@@ -8,6 +8,7 @@ and role-based access control.
 from datetime import datetime
 from sqlalchemy import Boolean, Column, DateTime, Enum, String
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 import uuid
 import enum
 
@@ -68,7 +69,7 @@ class User(Base):
     )
 
     role = Column(
-        Enum(UserRole, name="user_role"),
+        Enum(UserRole, name="userrole", values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=UserRole.REQUESTOR,
         doc="User role for access control",
@@ -100,6 +101,19 @@ class User(Base):
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
         doc="Last update timestamp",
+    )
+
+    # Relationships
+    requests = relationship(
+        "Request",
+        back_populates="user",
+        lazy="dynamic",
+    )
+
+    status_changes = relationship(
+        "StatusHistory",
+        back_populates="changed_by",
+        lazy="dynamic",
     )
 
     def __repr__(self) -> str:

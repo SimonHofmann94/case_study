@@ -33,7 +33,7 @@ services:
       - SENTRY_DSN=${SENTRY_DSN:-}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-change-in-production}
       - ENVIRONMENT=${ENVIRONMENT:-development}
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}
+      - CORS_ORIGINS=${CORS_ORIGINS:-["http://localhost:3000"]}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
