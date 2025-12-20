@@ -90,33 +90,45 @@ export const authApi = {
 
 // Request types
 export type RequestStatus = 'open' | 'in_progress' | 'closed';
+export type LineType = 'standard' | 'alternative' | 'optional';
 
 export interface OrderLine {
-  id?: number;
+  id?: string;
+  line_type: LineType;
   description: string;
+  detailed_description?: string;
   unit_price: number;
   amount: number;
   unit: string;
+  discount_percent?: number;
+  discount_amount?: number;
   total_price?: number;
 }
 
 export interface CommodityGroup {
-  id: number;
+  id: string;
   category: string;
   name: string;
   description: string | null;
 }
 
 export interface ProcurementRequest {
-  id: number;
-  user_id: number;
+  id: string;
+  user_id: string;
   title: string;
   vendor_name: string | null;
   vat_id: string | null;
-  commodity_group_id: number | null;
+  commodity_group_id: string | null;
   commodity_group?: CommodityGroup;
   department: string | null;
+  currency: string;
   total_cost: number;
+  subtotal_net?: number;
+  discount_total?: number;
+  delivery_cost_net?: number;
+  delivery_tax_amount?: number;
+  tax_rate?: number;
+  tax_amount?: number;
   status: RequestStatus;
   notes: string | null;
   order_lines: OrderLine[];
@@ -128,8 +140,15 @@ export interface CreateRequestData {
   title: string;
   vendor_name?: string;
   vat_id?: string;
-  commodity_group_id?: number;
+  commodity_group_id?: string;
   department?: string;
+  currency?: string;
+  subtotal_net?: number;
+  discount_total?: number;
+  delivery_cost_net?: number;
+  delivery_tax_amount?: number;
+  tax_rate?: number;
+  tax_amount?: number;
   notes?: string;
   order_lines: Omit<OrderLine, 'id' | 'total_price'>[];
 }
@@ -138,8 +157,15 @@ export interface UpdateRequestData {
   title?: string;
   vendor_name?: string;
   vat_id?: string;
-  commodity_group_id?: number;
+  commodity_group_id?: string;
   department?: string;
+  currency?: string;
+  subtotal_net?: number;
+  discount_total?: number;
+  delivery_cost_net?: number;
+  delivery_tax_amount?: number;
+  tax_rate?: number;
+  tax_amount?: number;
   notes?: string;
   order_lines?: Omit<OrderLine, 'id' | 'total_price'>[];
 }
@@ -163,7 +189,7 @@ export const requestsApi = {
     return response.data;
   },
 
-  get: async (id: number): Promise<ProcurementRequest> => {
+  get: async (id: string): Promise<ProcurementRequest> => {
     const response = await api.get<ProcurementRequest>(`/requests/${id}`);
     return response.data;
   },
@@ -173,24 +199,24 @@ export const requestsApi = {
     return response.data;
   },
 
-  update: async (id: number, data: UpdateRequestData): Promise<ProcurementRequest> => {
+  update: async (id: string, data: UpdateRequestData): Promise<ProcurementRequest> => {
     const response = await api.patch<ProcurementRequest>(`/requests/${id}`, data);
     return response.data;
   },
 
-  updateStatus: async (id: number, status: RequestStatus, notes?: string): Promise<ProcurementRequest> => {
+  updateStatus: async (id: string, status: RequestStatus, notes?: string): Promise<ProcurementRequest> => {
     const response = await api.put<ProcurementRequest>(`/requests/${id}/status`, { status, notes });
     return response.data;
   },
 
-  delete: async (id: number): Promise<void> => {
+  delete: async (id: string): Promise<void> => {
     await api.delete(`/requests/${id}`);
   },
 
-  getHistory: async (id: number): Promise<Array<{
-    id: number;
+  getHistory: async (id: string): Promise<Array<{
+    id: string;
     status: RequestStatus;
-    changed_by_user_id: number;
+    changed_by_user_id: string;
     changed_at: string;
     notes: string | null;
   }>> => {
@@ -211,7 +237,7 @@ export const commodityGroupsApi = {
     return response.data;
   },
 
-  get: async (id: number): Promise<CommodityGroup> => {
+  get: async (id: string): Promise<CommodityGroup> => {
     const response = await api.get<CommodityGroup>(`/commodity-groups/${id}`);
     return response.data;
   },
@@ -219,31 +245,53 @@ export const commodityGroupsApi = {
 
 // Offer parsing types
 export interface ParsedOrderLine {
+  line_type: LineType;
   description: string;
-  unit_price: number;
+  detailed_description?: string;
+  unit_price: number;  // Backend returns this (alias)
   amount: number;
   unit: string;
+  discount_percent?: number;
+  discount_amount?: number;
+  total_price?: number;  // Backend returns this (alias)
 }
 
 export interface ParsedOffer {
   vendor_name: string | null;
   vat_id: string | null;
+  currency: string;
   order_lines: ParsedOrderLine[];
+  subtotal_net?: number;
+  discount_total?: number;
+  delivery_cost_net?: number;
+  delivery_tax_amount?: number;
+  tax_rate?: number;
+  tax_amount?: number;
+  total_gross?: number;
 }
 
 export interface OfferParseResponse {
-  success: boolean;
-  data: ParsedOffer | null;
-  metadata: {
-    format_used: string;
-    fallback_used: boolean;
-    token_savings_percent?: number;
-  };
-  error: string | null;
+  vendor_name: string;
+  vat_id: string | null;
+  currency: string;
+  order_lines: ParsedOrderLine[];
+  subtotal_net?: number;
+  discount_total?: number;
+  delivery_cost_net?: number;
+  delivery_tax_amount?: number;
+  tax_rate?: number;
+  tax_amount?: number;
+  total_gross?: number;
+  token_savings: {
+    json_chars: number;
+    toon_chars: number;
+    savings_percent: number;
+  } | null;
+  format_used: string;
 }
 
 export interface CommoditySuggestion {
-  commodity_group_id: number;
+  commodity_group_id: string;
   category: string;
   name: string;
   confidence: number;

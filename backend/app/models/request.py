@@ -108,7 +108,53 @@ class Request(Base):
         Numeric(precision=12, scale=2),
         nullable=False,
         default=Decimal("0.00"),
-        doc="Total cost of all order lines",
+        doc="Total cost of all order lines (legacy, use total_gross for new requests)",
+    )
+
+    # Currency
+    currency = Column(
+        String(3),
+        nullable=False,
+        default="EUR",
+        doc="Currency of the request",
+    )
+
+    # Enhanced totals from offer parsing
+    subtotal_net = Column(
+        Numeric(precision=12, scale=2),
+        nullable=True,
+        doc="Sum of standard line totals before tax",
+    )
+
+    discount_total = Column(
+        Numeric(precision=12, scale=2),
+        nullable=True,
+        doc="Offer-wide discount amount",
+    )
+
+    delivery_cost_net = Column(
+        Numeric(precision=12, scale=2),
+        nullable=True,
+        doc="Delivery/shipping cost before tax",
+    )
+
+    delivery_tax_amount = Column(
+        Numeric(precision=12, scale=2),
+        nullable=True,
+        doc="Tax amount on delivery",
+    )
+
+    tax_rate = Column(
+        Numeric(precision=5, scale=2),
+        nullable=True,
+        default=Decimal("19.00"),
+        doc="Tax rate percentage",
+    )
+
+    tax_amount = Column(
+        Numeric(precision=12, scale=2),
+        nullable=True,
+        doc="Tax amount on items",
     )
 
     status = Column(

@@ -30,10 +30,13 @@ import { useSuggestCommodity } from '@/hooks/useOfferParsing';
 import { CommodityGroup, ParsedOffer } from '@/lib/api';
 
 const orderLineSchema = z.object({
-  description: z.string().min(1, 'Description is required'),
-  unit_price: z.coerce.number().positive('Price must be positive'),
+  line_type: z.enum(['standard', 'alternative', 'optional']).default('standard'),
+  item: z.string().min(1, 'Item name is required'),
+  description: z.string().optional(),
+  unit_price: z.coerce.number().min(0, 'Price must be 0 or positive'),
   amount: z.coerce.number().positive('Amount must be positive'),
   unit: z.string().min(1, 'Unit is required'),
+  discount_percent: z.coerce.number().min(0).max(100).optional().nullable(),
 });
 
 const requestFormSchema = z.object({
@@ -79,7 +82,7 @@ export function RequestForm({
       commodity_group_id: '',
       department: '',
       notes: '',
-      order_lines: [{ description: '', unit_price: 0, amount: 1, unit: 'pcs' }],
+      order_lines: [{ line_type: 'standard', item: '', description: '', unit_price: 0, amount: 1, unit: 'pcs', discount_percent: null }],
       ...defaultValues,
     },
   });
@@ -92,6 +95,10 @@ export function RequestForm({
   // Auto-fill form when parsedOffer changes
   useEffect(() => {
     if (parsedOffer) {
+      // Debug: Log what we received
+      console.log('=== RequestForm Auto-fill Debug ===');
+      console.log('parsedOffer:', parsedOffer);
+
       if (parsedOffer.vendor_name) {
         form.setValue('vendor_name', parsedOffer.vendor_name);
       }
@@ -99,26 +106,32 @@ export function RequestForm({
         form.setValue('vat_id', parsedOffer.vat_id);
       }
       if (parsedOffer.order_lines && parsedOffer.order_lines.length > 0) {
-        form.setValue(
-          'order_lines',
-          parsedOffer.order_lines.map((line) => ({
-            description: line.description,
-            unit_price: line.unit_price,
-            amount: line.amount,
-            unit: line.unit || 'pcs',
-          }))
-        );
+        const mappedLines = parsedOffer.order_lines.map((line) => ({
+          line_type: line.line_type || 'standard',
+          item: line.description,  // Short name goes to item
+          description: line.detailed_description || '',  // Details go to description
+          unit_price: Number(line.unit_price) || 0,
+          amount: Number(line.amount) || 1,
+          unit: line.unit || 'pcs',
+          discount_percent: line.discount_percent ? Number(line.discount_percent) : null,
+        }));
+        console.log('Mapped lines for form:', mappedLines);
+        form.setValue('order_lines', mappedLines);
       }
     }
   }, [parsedOffer, form]);
 
   const calculateTotal = () => {
     const orderLines = form.watch('order_lines');
-    return orderLines.reduce((sum, line) => {
-      const price = Number(line.unit_price) || 0;
-      const amount = Number(line.amount) || 0;
-      return sum + price * amount;
-    }, 0);
+    return orderLines
+      .filter((line) => line.line_type === 'standard' || !line.line_type)
+      .reduce((sum, line) => {
+        const price = Number(line.unit_price) || 0;
+        const amount = Number(line.amount) || 0;
+        const discountPercent = Number(line.discount_percent) || 0;
+        const lineTotal = price * amount * (1 - discountPercent / 100);
+        return sum + lineTotal;
+      }, 0);
   };
 
   const handleSuggestCommodity = async () => {
@@ -133,10 +146,13 @@ export function RequestForm({
       const suggestion = await suggestCommodity.mutateAsync({
         title,
         orderLines: orderLines.map((line) => ({
-          description: line.description,
+          line_type: line.line_type || 'standard',
+          description: line.item,  // Item name as description for AI
+          detailed_description: line.description,
           unit_price: Number(line.unit_price),
           amount: Number(line.amount),
           unit: line.unit,
+          discount_percent: line.discount_percent ?? undefined,
         })),
       });
 
@@ -284,7 +300,7 @@ export function RequestForm({
                 variant="outline"
                 size="sm"
                 onClick={() =>
-                  append({ description: '', unit_price: 0, amount: 1, unit: 'pcs' })
+                  append({ line_type: 'standard', item: '', description: '', unit_price: 0, amount: 1, unit: 'pcs', discount_percent: null })
                 }
               >
                 <Plus className="h-4 w-4 mr-1" />
@@ -292,97 +308,159 @@ export function RequestForm({
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {fields.map((field, index) => (
-              <div
-                key={field.id}
-                className="grid gap-4 md:grid-cols-[1fr_120px_100px_100px_40px] items-end"
-              >
-                <FormField
-                  control={form.control}
-                  name={`order_lines.${index}.description`}
-                  render={({ field }) => (
-                    <FormItem>
-                      {index === 0 && <FormLabel>Description</FormLabel>}
-                      <FormControl>
-                        <Input placeholder="Item description" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name={`order_lines.${index}.unit_price`}
-                  render={({ field }) => (
-                    <FormItem>
-                      {index === 0 && <FormLabel>Unit Price</FormLabel>}
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name={`order_lines.${index}.amount`}
-                  render={({ field }) => (
-                    <FormItem>
-                      {index === 0 && <FormLabel>Amount</FormLabel>}
-                      <FormControl>
-                        <Input type="number" placeholder="1" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name={`order_lines.${index}.unit`}
-                  render={({ field }) => (
-                    <FormItem>
-                      {index === 0 && <FormLabel>Unit</FormLabel>}
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="pcs">pcs</SelectItem>
-                          <SelectItem value="hours">hours</SelectItem>
-                          <SelectItem value="days">days</SelectItem>
-                          <SelectItem value="kg">kg</SelectItem>
-                          <SelectItem value="m">m</SelectItem>
-                          <SelectItem value="l">l</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => fields.length > 1 && remove(index)}
-                  disabled={fields.length <= 1}
-                  className="text-destructive hover:text-destructive"
+          <CardContent className="space-y-6">
+            {fields.map((field, index) => {
+              const lineType = form.watch(`order_lines.${index}.line_type`);
+              return (
+                <div
+                  key={field.id}
+                  className={`p-4 border rounded-lg space-y-4 ${
+                    lineType === 'alternative' ? 'border-blue-300 bg-blue-50/50' :
+                    lineType === 'optional' ? 'border-amber-300 bg-amber-50/50' : ''
+                  }`}
                 >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+                  {/* Row 1: Type + Item + Delete */}
+                  <div className="flex gap-4 items-start">
+                    <FormField
+                      control={form.control}
+                      name={`order_lines.${index}.line_type`}
+                      render={({ field }) => (
+                        <FormItem className="w-32">
+                          <FormLabel className={index === 0 ? '' : 'sr-only'}>Type</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="standard">Standard</SelectItem>
+                              <SelectItem value="alternative">Alternative</SelectItem>
+                              <SelectItem value="optional">Optional</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name={`order_lines.${index}.item`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel className={index === 0 ? '' : 'sr-only'}>Item</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Item name (e.g., Dell XPS 15)" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => fields.length > 1 && remove(index)}
+                      disabled={fields.length <= 1}
+                      className="text-destructive hover:text-destructive mt-6"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Row 2: Description (optional details) */}
+                  <FormField
+                    control={form.control}
+                    name={`order_lines.${index}.description`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className={index === 0 ? '' : 'sr-only'}>Description (optional)</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Detailed specifications, features, etc."
+                            className="min-h-[60px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Row 3: Price, Amount, Unit, Discount */}
+                  <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+                    <FormField
+                      control={form.control}
+                      name={`order_lines.${index}.unit_price`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className={index === 0 ? '' : 'sr-only'}>Unit Price</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="0.00"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name={`order_lines.${index}.amount`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className={index === 0 ? '' : 'sr-only'}>Amount</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" placeholder="1" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name={`order_lines.${index}.unit`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className={index === 0 ? '' : 'sr-only'}>Unit</FormLabel>
+                          <FormControl>
+                            <Input placeholder="pcs, m², Stk, etc." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name={`order_lines.${index}.discount_percent`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className={index === 0 ? '' : 'sr-only'}>Discount %</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              placeholder="0"
+                              {...field}
+                              value={field.value ?? ''}
+                              onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              );
+            })}
 
             <div className="flex justify-end pt-4 border-t">
               <div className="text-lg font-semibold">

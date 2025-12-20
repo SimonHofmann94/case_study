@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -45,7 +45,7 @@ const statusTransitions: Record<RequestStatus, RequestStatus[]> = {
   closed: ['open', 'in_progress'],
 };
 
-function RequestDetailContent({ id }: { id: number }) {
+function RequestDetailContent({ id }: { id: string }) {
   const router = useRouter();
   const { user } = useAuth();
   const [error, setError] = useState<string | null>(null);
@@ -343,14 +343,11 @@ function RequestDetailContent({ id }: { id: number }) {
 export default function RequestDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const resolvedParams = use(params);
-  const id = parseInt(resolvedParams.id, 10);
-
   return (
     <ProtectedRoute>
-      <RequestDetailContent id={id} />
+      <RequestDetailContent id={params.id} />
     </ProtectedRoute>
   );
 }

@@ -33,9 +33,7 @@ function NewRequestContent() {
         title: data.title,
         vendor_name: data.vendor_name || undefined,
         vat_id: data.vat_id || undefined,
-        commodity_group_id: data.commodity_group_id
-          ? parseInt(data.commodity_group_id)
-          : undefined,
+        commodity_group_id: data.commodity_group_id || undefined,
         department: data.department || undefined,
         notes: data.notes || undefined,
         order_lines: data.order_lines.map((line) => ({

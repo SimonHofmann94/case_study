@@ -103,7 +103,7 @@ class TestOfferParsingService:
         assert result.vat_id == "DE123456789"
         assert len(result.order_lines) == 2
         assert result.order_lines[0].description == "Dell XPS 15 Laptop"
-        assert result.order_lines[0].unit_price == Decimal("1299.99")
+        assert result.order_lines[0].unit_price_net == Decimal("1299.99")
         assert result.order_lines[0].amount == Decimal("5")
         assert metadata["format_used"] == "toon"
 
@@ -201,7 +201,7 @@ class TestOfferParsingService:
         assert result.vendor_name == "Test Vendor"
         assert result.vat_id == "DE987654321"
         assert len(result.order_lines) == 1
-        assert result.order_lines[0].unit_price == Decimal("100.00")
+        assert result.order_lines[0].unit_price_net == Decimal("100.00")
         assert result.order_lines[0].amount == Decimal("10")
 
     def test_validate_empty_order_lines(self, mock_settings):

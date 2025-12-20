@@ -21,7 +21,7 @@ export function useRequests(params?: {
   });
 }
 
-export function useRequest(id: number) {
+export function useRequest(id: string) {
   return useQuery({
     queryKey: ['request', id],
     queryFn: () => requestsApi.get(id),
@@ -29,7 +29,7 @@ export function useRequest(id: number) {
   });
 }
 
-export function useRequestHistory(id: number) {
+export function useRequestHistory(id: string) {
   return useQuery({
     queryKey: ['request-history', id],
     queryFn: () => requestsApi.getHistory(id),
@@ -52,7 +52,7 @@ export function useUpdateRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: UpdateRequestData }) =>
+    mutationFn: ({ id, data }: { id: string; data: UpdateRequestData }) =>
       requestsApi.update(id, data),
     onSuccess: (data: ProcurementRequest) => {
       queryClient.invalidateQueries({ queryKey: ['requests'] });
@@ -70,7 +70,7 @@ export function useUpdateRequestStatus() {
       status,
       notes,
     }: {
-      id: number;
+      id: string;
       status: RequestStatus;
       notes?: string;
     }) => requestsApi.updateStatus(id, status, notes),
@@ -86,7 +86,7 @@ export function useDeleteRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: number) => requestsApi.delete(id),
+    mutationFn: (id: string) => requestsApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['requests'] });
     },

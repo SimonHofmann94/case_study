@@ -131,7 +131,15 @@ async def parse_offer(
         return OfferParseResponse(
             vendor_name=parsed_offer.vendor_name,
             vat_id=parsed_offer.vat_id,
+            currency=parsed_offer.currency,
             order_lines=parsed_offer.order_lines,
+            subtotal_net=parsed_offer.subtotal_net,
+            discount_total=parsed_offer.discount_total,
+            delivery_cost_net=parsed_offer.delivery_cost_net,
+            delivery_tax_amount=parsed_offer.delivery_tax_amount,
+            tax_rate=parsed_offer.tax_rate,
+            tax_amount=parsed_offer.tax_amount,
+            total_gross=parsed_offer.total_gross,
             token_savings=metadata.get("token_savings"),
             format_used=metadata.get("format_used", "json"),
         )

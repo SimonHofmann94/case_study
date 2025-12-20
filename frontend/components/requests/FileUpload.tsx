@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useParseOffer } from '@/hooks/useOfferParsing';
-import { ParsedOffer } from '@/lib/api';
+import { ParsedOffer, OfferParseResponse } from '@/lib/api';
 
 interface FileUploadProps {
   onParsed: (data: ParsedOffer) => void;
@@ -47,10 +47,43 @@ export function FileUpload({ onParsed }: FileUploadProps) {
       try {
         const result = await parseOffer.mutateAsync(selectedFile);
 
-        if (result.success && result.data) {
-          onParsed(result.data);
+        // Debug: Log the raw response from the backend
+        console.log('=== Offer Parsing Debug ===');
+        console.log('Raw API response:', JSON.stringify(result, null, 2));
+        console.log('Order lines:', result.order_lines);
+        if (result.order_lines?.[0]) {
+          console.log('First order line:', result.order_lines[0]);
+          console.log('unit_price_net:', result.order_lines[0].unit_price_net);
+          console.log('unit_price:', (result.order_lines[0] as any).unit_price);
+        }
+
+        // Backend returns parsed offer directly, convert to ParsedOffer format
+        if (result.vendor_name || result.order_lines) {
+          onParsed({
+            vendor_name: result.vendor_name || null,
+            vat_id: result.vat_id || null,
+            currency: result.currency || 'EUR',
+            order_lines: result.order_lines.map((line) => ({
+              line_type: line.line_type || 'standard',
+              description: line.description,
+              detailed_description: line.detailed_description,
+              unit_price: line.unit_price,
+              amount: line.amount,
+              unit: line.unit || 'pcs',
+              discount_percent: line.discount_percent,
+              discount_amount: line.discount_amount,
+              total_price: line.total_price,
+            })),
+            subtotal_net: result.subtotal_net,
+            discount_total: result.discount_total,
+            delivery_cost_net: result.delivery_cost_net,
+            delivery_tax_amount: result.delivery_tax_amount,
+            tax_rate: result.tax_rate,
+            tax_amount: result.tax_amount,
+            total_gross: result.total_gross,
+          });
         } else {
-          setError(result.error || 'Failed to parse the document');
+          setError('Failed to parse the document - no data extracted');
         }
       } catch (err) {
         const error = err as { response?: { data?: { detail?: string } } };
@@ -125,7 +158,7 @@ export function FileUpload({ onParsed }: FileUploadProps) {
                 </p>
               </div>
             </div>
-          ) : file && parseOffer.isSuccess ? (
+          ) : file && parseOffer.isSuccess && parseOffer.data?.vendor_name ? (
             <div className="flex flex-col items-center gap-4">
               <CheckCircle className="h-12 w-12 text-green-500" />
               <div>
@@ -192,19 +225,56 @@ export function FileUpload({ onParsed }: FileUploadProps) {
           </Alert>
         )}
 
-        {parseOffer.isSuccess && parseOffer.data?.metadata && (
-          <div className="mt-4 text-sm text-muted-foreground">
-            <p>
-              Format used: {parseOffer.data.metadata.format_used}
-              {parseOffer.data.metadata.fallback_used && ' (fallback)'}
-            </p>
-            {parseOffer.data.metadata.token_savings_percent && (
-              <p>
-                Token savings: {parseOffer.data.metadata.token_savings_percent.toFixed(1)}%
-              </p>
-            )}
+        {parseOffer.isSuccess && parseOffer.data && (
+          <div className="mt-4 space-y-2">
+            <div className="text-sm text-muted-foreground">
+              <p>Format used: {parseOffer.data.format_used}</p>
+              {parseOffer.data.token_savings && (
+                <p>
+                  Token savings: {parseOffer.data.token_savings.savings_percent.toFixed(1)}%
+                </p>
+              )}
+            </div>
+
+            {/* Debug Panel - Extraction Results */}
+            <details className="mt-4 border rounded-lg p-3 bg-muted/50">
+              <summary className="cursor-pointer font-medium text-sm">
+                Debug: View Extraction Results
+              </summary>
+              <div className="mt-3 space-y-3 text-xs font-mono">
+                <div>
+                  <strong>Vendor:</strong> {parseOffer.data.vendor_name || 'N/A'}
+                </div>
+                <div>
+                  <strong>VAT ID:</strong> {parseOffer.data.vat_id || 'N/A'}
+                </div>
+                <div>
+                  <strong>Currency:</strong> {parseOffer.data.currency || 'EUR'}
+                </div>
+                <div>
+                  <strong>Order Lines ({parseOffer.data.order_lines?.length || 0}):</strong>
+                  <pre className="mt-1 p-2 bg-background rounded border overflow-x-auto">
+                    {JSON.stringify(parseOffer.data.order_lines, null, 2)}
+                  </pre>
+                </div>
+                <div>
+                  <strong>Totals:</strong>
+                  <pre className="mt-1 p-2 bg-background rounded border overflow-x-auto">
+{JSON.stringify({
+  subtotal_net: parseOffer.data.subtotal_net,
+  discount_total: parseOffer.data.discount_total,
+  delivery_cost_net: parseOffer.data.delivery_cost_net,
+  tax_rate: parseOffer.data.tax_rate,
+  tax_amount: parseOffer.data.tax_amount,
+  total_gross: parseOffer.data.total_gross,
+}, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            </details>
           </div>
         )}
+
       </CardContent>
     </Card>
   );

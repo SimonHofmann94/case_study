@@ -25,24 +25,57 @@ class RequestBase(BaseModel):
         max_length=255,
         description="Brief title/description of the request",
     )
-    vendor_name: str = Field(
-        ...,
-        min_length=1,
+    vendor_name: Optional[str] = Field(
+        None,
         max_length=255,
         description="Name of the vendor",
     )
-    vat_id: str = Field(
-        ...,
-        min_length=11,
+    vat_id: Optional[str] = Field(
+        None,
         max_length=20,
         pattern=r"^DE\d{9}$",
         description="VAT identification number (format: DE + 9 digits)",
     )
-    department: str = Field(
-        ...,
-        min_length=1,
+    department: Optional[str] = Field(
+        None,
         max_length=100,
         description="Department making the request",
+    )
+    currency: str = Field(
+        default="EUR",
+        max_length=3,
+        description="Currency code (e.g., EUR, USD)",
+    )
+    subtotal_net: Optional[Decimal] = Field(
+        None,
+        ge=0,
+        description="Sum of standard line totals before tax",
+    )
+    discount_total: Optional[Decimal] = Field(
+        None,
+        ge=0,
+        description="Offer-wide discount amount",
+    )
+    delivery_cost_net: Optional[Decimal] = Field(
+        None,
+        ge=0,
+        description="Shipping/delivery cost before tax",
+    )
+    delivery_tax_amount: Optional[Decimal] = Field(
+        None,
+        ge=0,
+        description="Tax amount on delivery",
+    )
+    tax_rate: Optional[Decimal] = Field(
+        None,
+        ge=0,
+        le=100,
+        description="Tax rate percentage (e.g., 19 for 19%)",
+    )
+    tax_amount: Optional[Decimal] = Field(
+        None,
+        ge=0,
+        description="Total tax amount on items",
     )
     notes: Optional[str] = Field(
         None,
@@ -102,26 +135,59 @@ class RequestUpdate(BaseModel):
     )
     vendor_name: Optional[str] = Field(
         None,
-        min_length=1,
         max_length=255,
         description="Name of the vendor",
     )
     vat_id: Optional[str] = Field(
         None,
-        min_length=11,
         max_length=20,
         pattern=r"^DE\d{9}$",
         description="VAT identification number",
     )
     department: Optional[str] = Field(
         None,
-        min_length=1,
         max_length=100,
         description="Department making the request",
     )
     commodity_group_id: Optional[UUID] = Field(
         None,
         description="Reference to the commodity group classification",
+    )
+    currency: Optional[str] = Field(
+        None,
+        max_length=3,
+        description="Currency code (e.g., EUR, USD)",
+    )
+    subtotal_net: Optional[Decimal] = Field(
+        None,
+        ge=0,
+        description="Sum of standard line totals before tax",
+    )
+    discount_total: Optional[Decimal] = Field(
+        None,
+        ge=0,
+        description="Offer-wide discount amount",
+    )
+    delivery_cost_net: Optional[Decimal] = Field(
+        None,
+        ge=0,
+        description="Shipping/delivery cost before tax",
+    )
+    delivery_tax_amount: Optional[Decimal] = Field(
+        None,
+        ge=0,
+        description="Tax amount on delivery",
+    )
+    tax_rate: Optional[Decimal] = Field(
+        None,
+        ge=0,
+        le=100,
+        description="Tax rate percentage (e.g., 19 for 19%)",
+    )
+    tax_amount: Optional[Decimal] = Field(
+        None,
+        ge=0,
+        description="Total tax amount on items",
     )
     notes: Optional[str] = Field(
         None,
