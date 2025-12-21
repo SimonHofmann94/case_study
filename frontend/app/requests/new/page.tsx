@@ -37,19 +37,29 @@ function NewRequestContent() {
         department: data.department || undefined,
         notes: data.notes || undefined,
         order_lines: data.order_lines.map((line) => ({
-          description: line.description,
+          line_type: line.line_type || 'standard',
+          description: line.item, // Form's "item" maps to backend's "description"
+          detailed_description: line.description || undefined, // Form's "description" maps to backend's "detailed_description"
           unit_price: Number(line.unit_price),
           amount: Number(line.amount),
           unit: line.unit,
+          discount_percent: line.discount_percent ? Number(line.discount_percent) : undefined,
         })),
       });
 
       router.push('/requests');
     } catch (err) {
-      const error = err as { response?: { data?: { detail?: string } } };
-      setError(
-        error.response?.data?.detail || 'Failed to create request. Please try again.'
-      );
+      // Handle API validation errors which come as array of objects
+      const error = err as { response?: { data?: { detail?: string | Array<{ msg: string; loc: string[] }> } } };
+      const detail = error.response?.data?.detail;
+
+      if (Array.isArray(detail)) {
+        // Pydantic validation errors - extract messages
+        const messages = detail.map((e) => e.msg).join(', ');
+        setError(messages || 'Validation failed. Please check your input.');
+      } else {
+        setError(detail || 'Failed to create request. Please try again.');
+      }
     }
   };
 

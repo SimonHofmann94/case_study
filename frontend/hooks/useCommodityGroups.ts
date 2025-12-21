@@ -19,7 +19,7 @@ export function useCommodityGroupCategories() {
   });
 }
 
-export function useCommodityGroup(id: number) {
+export function useCommodityGroup(id: string) {
   return useQuery({
     queryKey: ['commodity-group', id],
     queryFn: () => commodityGroupsApi.get(id),

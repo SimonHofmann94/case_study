@@ -16,7 +16,7 @@ from app.auth.models import User
 from app.config import settings
 from app.database import get_db
 from app.schemas.offer import OfferParseResponse, ParsedOrderLine
-from app.schemas.commodity_group import CommodityGroupSuggestion
+from app.schemas.commodity_group import CommodityGroupSuggestion, CommoditySuggestionRequest
 from app.services.offer_parsing import (
     OfferParsingService,
     OfferParsingError,
@@ -140,6 +140,13 @@ async def parse_offer(
             tax_rate=parsed_offer.tax_rate,
             tax_amount=parsed_offer.tax_amount,
             total_gross=parsed_offer.total_gross,
+            # Terms and conditions
+            payment_terms=parsed_offer.payment_terms,
+            delivery_terms=parsed_offer.delivery_terms,
+            validity_period=parsed_offer.validity_period,
+            warranty_terms=parsed_offer.warranty_terms,
+            other_terms=parsed_offer.other_terms,
+            # Metadata
             token_savings=metadata.get("token_savings"),
             format_used=metadata.get("format_used", "json"),
         )
@@ -163,9 +170,7 @@ async def parse_offer(
 @limiter.limit("50/hour")
 async def suggest_commodity_group(
     request: Request,
-    title: str,
-    order_lines: List[dict],
-    vendor_name: str = None,
+    body: CommoditySuggestionRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -181,9 +186,9 @@ async def suggest_commodity_group(
     try:
         service = CommodityClassificationService(db)
         suggestion = await service.suggest_commodity_group(
-            title=title,
-            order_lines=order_lines,
-            vendor_name=vendor_name,
+            title=body.title,
+            order_lines=body.order_lines,
+            vendor_name=body.vendor_name,
         )
 
         logger.info(

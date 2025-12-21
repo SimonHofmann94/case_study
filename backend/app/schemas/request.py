@@ -25,19 +25,21 @@ class RequestBase(BaseModel):
         max_length=255,
         description="Brief title/description of the request",
     )
-    vendor_name: Optional[str] = Field(
-        None,
+    vendor_name: str = Field(
+        ...,
+        min_length=1,
         max_length=255,
         description="Name of the vendor",
     )
-    vat_id: Optional[str] = Field(
-        None,
+    vat_id: str = Field(
+        ...,
         max_length=20,
         pattern=r"^DE\d{9}$",
         description="VAT identification number (format: DE + 9 digits)",
     )
-    department: Optional[str] = Field(
-        None,
+    department: str = Field(
+        ...,
+        min_length=1,
         max_length=100,
         description="Department making the request",
     )

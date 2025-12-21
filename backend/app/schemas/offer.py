@@ -127,6 +127,28 @@ class ParsedVendorOffer(BaseModel):
         alias="total_amount",
     )
 
+    # Terms and Conditions
+    payment_terms: Optional[str] = Field(
+        None,
+        description="Payment terms (e.g., '30 days net')",
+    )
+    delivery_terms: Optional[str] = Field(
+        None,
+        description="Delivery time or terms (e.g., '2-3 weeks')",
+    )
+    validity_period: Optional[str] = Field(
+        None,
+        description="How long the offer is valid",
+    )
+    warranty_terms: Optional[str] = Field(
+        None,
+        description="Warranty information",
+    )
+    other_terms: Optional[str] = Field(
+        None,
+        description="Any other important terms or conditions",
+    )
+
     # Metadata
     raw_text: Optional[str] = Field(
         None,
@@ -250,6 +272,28 @@ class OfferParseResponse(BaseModel):
     total_gross: Optional[Decimal] = Field(
         None,
         description="Total amount including all taxes",
+    )
+
+    # Terms and Conditions
+    payment_terms: Optional[str] = Field(
+        None,
+        description="Payment terms (e.g., '30 days net')",
+    )
+    delivery_terms: Optional[str] = Field(
+        None,
+        description="Delivery time or terms (e.g., '2-3 weeks')",
+    )
+    validity_period: Optional[str] = Field(
+        None,
+        description="How long the offer is valid",
+    )
+    warranty_terms: Optional[str] = Field(
+        None,
+        description="Warranty information",
+    )
+    other_terms: Optional[str] = Field(
+        None,
+        description="Any other important terms or conditions",
     )
 
     # Metadata

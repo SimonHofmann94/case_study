@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { offersApi, ParsedOrderLine } from '@/lib/api';
+import { offersApi } from '@/lib/api';
 
 export function useParseOffer() {
   return useMutation({
@@ -20,9 +20,11 @@ export function useSuggestCommodity() {
     mutationFn: ({
       title,
       orderLines,
+      vendorName,
     }: {
       title: string;
-      orderLines: ParsedOrderLine[];
-    }) => offersApi.suggestCommodity(title, orderLines),
+      orderLines: Array<{ description: string; unit_price?: number; amount?: number }>;
+      vendorName?: string;
+    }) => offersApi.suggestCommodity(title, orderLines, vendorName),
   });
 }

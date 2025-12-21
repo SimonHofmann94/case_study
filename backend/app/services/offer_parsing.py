@@ -51,15 +51,26 @@ Your task is to extract the following information from vendor offers:
    - tax_amount: Tax amount on items (not including delivery tax)
    - total_gross: Final total including all taxes
 
+6. Terms and Conditions:
+   - payment_terms: Payment terms (e.g., "30 days net", "14 days 2% discount")
+   - delivery_terms: Delivery time or terms (e.g., "2-3 weeks", "within 10 business days")
+   - validity_period: How long the offer is valid (e.g., "30 days", "until 2024-03-31")
+   - warranty_terms: Warranty information (e.g., "24 months", "3 years on-site")
+   - other_terms: Any other important terms or conditions
+
 IMPORTANT RULES:
 - Extract ALL order lines/items from the document
 - Mark items as "alternative" if they are presented as alternatives not included in the final price
 - Mark items as "optional" if they are optional add-ons not included in the final price
 - VAT IDs must be in format DE + 9 digits (e.g., DE123456789)
-- Prices should be numeric values without currency symbols
+- CRITICAL: For prices and amounts, preserve the EXACT format from the document as a STRING
+  - German format uses period as thousands separator and comma as decimal: "1.186,14" means 1186.14
+  - Return prices as strings exactly as they appear: "1.186,14" not 1.18614
+  - Examples: "1.234,56" (German) = 1234.56, "1,234.56" (US) = 1234.56
 - If a field is not found, use null
 - Be thorough - don't miss any line items or specifications
 - Extract detailed_description from product specifications, features lists, or item details
+- Extract ALL terms and conditions mentioned in the offer
 
 {format_instructions}
 """
@@ -72,8 +83,9 @@ Output your response in TOON format (Token Oriented Object Notation):
 - Use [] for arrays
 
 Example TOON output:
-vendor_name:Dell Technologies GmbH|vat_id:DE123456789|currency:EUR|order_lines:[{line_type:standard|description:Laptop XPS 15|detailed_description:Intel i7, 32GB RAM, 1TB SSD|unit_price_net:1299.99|amount:5|unit:pcs|discount_percent:10|line_total_net:5849.96};{line_type:alternative|description:Laptop XPS 17|detailed_description:Intel i9, 64GB RAM|unit_price_net:2499.99|amount:5|unit:pcs|line_total_net:12499.95}]|subtotal_net:5849.96|delivery_cost_net:49.99|delivery_tax_amount:9.50|tax_rate:19|tax_amount:1111.49|total_gross:7020.94
+vendor_name:Dell Technologies GmbH|vat_id:DE123456789|currency:EUR|order_lines:[{line_type:standard|description:Laptop XPS 15|detailed_description:Intel i7, 32GB RAM, 1TB SSD|unit_price_net:1.299,99|amount:5|unit:pcs|discount_percent:10|line_total_net:5.849,96};{line_type:alternative|description:Laptop XPS 17|detailed_description:Intel i9, 64GB RAM|unit_price_net:2.499,99|amount:5|unit:pcs|line_total_net:12.499,95}]|subtotal_net:5.849,96|delivery_cost_net:49,99|delivery_tax_amount:9,50|tax_rate:19|tax_amount:1.111,49|total_gross:7.020,94|payment_terms:30 days net|delivery_terms:2-3 weeks|validity_period:30 days|warranty_terms:24 months|other_terms:null
 
+IMPORTANT: Return all prices as STRINGS exactly as they appear in the document (e.g., "1.186,14" for German format).
 ONLY output the TOON formatted data, nothing else.
 """
 
@@ -88,32 +100,38 @@ Output your response as valid JSON with this structure:
       "line_type": "standard",
       "description": "Item title",
       "detailed_description": "Detailed specs and features",
-      "unit_price_net": 100.00,
+      "unit_price_net": "1.299,99",
       "amount": 5,
       "unit": "pcs",
       "discount_percent": 10,
-      "discount_amount": 50.00,
-      "line_total_net": 450.00
+      "discount_amount": "649,99",
+      "line_total_net": "5.849,96"
     },
     {
       "line_type": "alternative",
       "description": "Alternative Item",
       "detailed_description": "Alternative specs",
-      "unit_price_net": 150.00,
+      "unit_price_net": "150,00",
       "amount": 5,
       "unit": "pcs",
-      "line_total_net": 750.00
+      "line_total_net": "750,00"
     }
   ],
-  "subtotal_net": 450.00,
+  "subtotal_net": "5.849,96",
   "discount_total": null,
-  "delivery_cost_net": 25.00,
-  "delivery_tax_amount": 4.75,
+  "delivery_cost_net": "25,00",
+  "delivery_tax_amount": "4,75",
   "tax_rate": 19,
-  "tax_amount": 85.50,
-  "total_gross": 565.25
+  "tax_amount": "1.111,49",
+  "total_gross": "7.020,94",
+  "payment_terms": "30 days net",
+  "delivery_terms": "2-3 weeks",
+  "validity_period": "30 days",
+  "warranty_terms": "24 months",
+  "other_terms": "Free shipping for orders over 500 EUR"
 }
 
+IMPORTANT: Return all prices as STRINGS exactly as they appear in the document (e.g., "1.186,14" for German format).
 ONLY output valid JSON, nothing else.
 """
 
@@ -273,6 +291,12 @@ class OfferParsingService:
             tax_rate=tax_rate,
             tax_amount=tax_amount,
             total_gross=total_gross,
+            # Terms and conditions
+            payment_terms=data.get("payment_terms"),
+            delivery_terms=data.get("delivery_terms"),
+            validity_period=data.get("validity_period"),
+            warranty_terms=data.get("warranty_terms"),
+            other_terms=data.get("other_terms"),
         )
 
     async def parse_offer(

@@ -112,3 +112,23 @@ class CommodityGroupSuggestion(BaseModel):
             }
         }
     )
+
+
+class CommoditySuggestionRequest(BaseModel):
+    """Schema for requesting commodity group suggestion."""
+
+    title: str = Field(..., description="Request title")
+    order_lines: list = Field(..., description="List of order line dictionaries")
+    vendor_name: Optional[str] = Field(None, description="Vendor name if available")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "title": "Office Equipment Purchase",
+                "order_lines": [
+                    {"description": "Dell XPS 15 Laptop", "unit_price": 1299.99, "amount": 5}
+                ],
+                "vendor_name": "Dell Technologies"
+            }
+        }
+    )

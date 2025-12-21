@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useParseOffer } from '@/hooks/useOfferParsing';
-import { ParsedOffer, OfferParseResponse } from '@/lib/api';
+import { ParsedOffer } from '@/lib/api';
 
 interface FileUploadProps {
   onParsed: (data: ParsedOffer) => void;
@@ -53,8 +53,7 @@ export function FileUpload({ onParsed }: FileUploadProps) {
         console.log('Order lines:', result.order_lines);
         if (result.order_lines?.[0]) {
           console.log('First order line:', result.order_lines[0]);
-          console.log('unit_price_net:', result.order_lines[0].unit_price_net);
-          console.log('unit_price:', (result.order_lines[0] as any).unit_price);
+          console.log('unit_price:', result.order_lines[0].unit_price);
         }
 
         // Backend returns parsed offer directly, convert to ParsedOffer format

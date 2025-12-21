@@ -316,11 +316,13 @@ export const offersApi = {
 
   suggestCommodity: async (
     title: string,
-    orderLines: ParsedOrderLine[]
+    orderLines: Array<{ description: string; unit_price?: number; amount?: number }>,
+    vendorName?: string
   ): Promise<CommoditySuggestion> => {
     const response = await api.post<CommoditySuggestion>('/offers/suggest-commodity', {
       title,
       order_lines: orderLines,
+      vendor_name: vendorName,
     });
     return response.data;
   },

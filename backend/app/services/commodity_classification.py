@@ -50,20 +50,22 @@ IMPORTANT RULES:
 
 TOON_FORMAT_INSTRUCTIONS = """
 Output your response in TOON format:
-category:A|name:Commodity Name|confidence:0.85|explanation:Brief reason for selection
+category:029|name:Hardware|confidence:0.85|explanation:Brief reason for selection
 
+The category MUST be the exact 3-digit code from the catalog (e.g., 001, 029, 031).
 ONLY output the TOON formatted data, nothing else.
 """
 
 JSON_FORMAT_INSTRUCTIONS = """
 Output your response as valid JSON:
 {
-  "category": "A",
-  "name": "Commodity Name",
+  "category": "029",
+  "name": "Hardware",
   "confidence": 0.85,
   "explanation": "Brief reason for selection"
 }
 
+The category MUST be the exact 3-digit code from the catalog (e.g., 001, 029, 031).
 ONLY output valid JSON, nothing else.
 """
 
@@ -102,15 +104,16 @@ class CommodityClassificationService:
         ).all()
 
         if self.use_toon:
-            # Compact TOON format
-            lines = []
+            # Compact TOON format with clear category codes
+            lines = ["Category Code : Name"]
+            lines.append("-" * 40)
             for g in groups:
-                lines.append(f"{g.category}:{g.name}")
+                lines.append(f"{g.category} : {g.name}")
             return "\n".join(lines)
         else:
-            # JSON format
+            # JSON format with explicit category_code field
             return json.dumps([
-                {"category": g.category, "name": g.name, "description": g.description}
+                {"category_code": g.category, "name": g.name, "description": g.description}
                 for g in groups
             ], indent=2)
 
@@ -171,19 +174,42 @@ class CommodityClassificationService:
         name: str,
     ) -> Optional[CommodityGroup]:
         """Find a commodity group by category and name."""
-        # Try exact match first
+        # Normalize category to 3-digit string with leading zeros
+        try:
+            category_normalized = str(int(category)).zfill(3)
+        except (ValueError, TypeError):
+            category_normalized = str(category).zfill(3)
+
+        logger.info(f"Finding commodity group: category='{category}' -> normalized='{category_normalized}', name='{name}'")
+
+        # Try exact match first (category + name)
         group = self.db.query(CommodityGroup).filter(
-            CommodityGroup.category == category.upper(),
-            CommodityGroup.name.ilike(name)
+            CommodityGroup.category == category_normalized,
+            CommodityGroup.name.ilike(f"%{name}%")
         ).first()
 
         if group:
+            logger.info(f"Found exact match: {group.id} - {group.category}:{group.name}")
             return group
 
         # Try category only
         group = self.db.query(CommodityGroup).filter(
-            CommodityGroup.category == category.upper()
+            CommodityGroup.category == category_normalized
         ).first()
+
+        if group:
+            logger.info(f"Found category match: {group.id} - {group.category}:{group.name}")
+            return group
+
+        # Try matching by name only as fallback
+        group = self.db.query(CommodityGroup).filter(
+            CommodityGroup.name.ilike(f"%{name}%")
+        ).first()
+
+        if group:
+            logger.info(f"Found name match: {group.id} - {group.category}:{group.name}")
+        else:
+            logger.warning(f"No commodity group found for category='{category_normalized}' or name='{name}'")
 
         return group
 
@@ -208,15 +234,9 @@ class CommodityClassificationService:
             ClassificationError: If classification fails
         """
         if not self.ai_enabled:
-            # Return a default suggestion when AI is disabled
-            default_group = self.db.query(CommodityGroup).first()
-            return CommodityGroupSuggestion(
-                commodity_group_id=default_group.id if default_group else None,
-                category=default_group.category if default_group else "A",
-                name=default_group.name if default_group else "General",
-                confidence=0.0,
-                explanation="AI classification is not available. Please select manually.",
-            )
+            # Use keyword-based fallback when AI is disabled
+            logger.info("AI not enabled, using keyword-based classification")
+            return self._keyword_based_suggestion(title, order_lines)
 
         try:
             # Get commodity catalog
@@ -243,15 +263,18 @@ Available Commodity Groups:
 
             # Call LLM
             response = await self.llm.ainvoke(messages)
+            logger.info(f"LLM response: {response.content[:200]}")
             parsed = self._parse_response(response.content)
+            logger.info(f"Parsed classification: {parsed}")
 
             # Find the commodity group
-            category = parsed.get("category", "A")
-            name = parsed.get("name", "")
+            category = str(parsed.get("category", "001"))
+            name = str(parsed.get("name", ""))
             confidence = float(parsed.get("confidence", 0.5))
-            explanation = parsed.get("explanation", "")
+            explanation = str(parsed.get("explanation", ""))
 
             group = self._find_commodity_group(category, name)
+            logger.info(f"Found commodity group: {group.id if group else None} ({group.name if group else 'None'})")
 
             return CommodityGroupSuggestion(
                 commodity_group_id=group.id if group else None,
@@ -301,37 +324,70 @@ Available Commodity Groups:
         for line in order_lines:
             all_text += " " + line.get("description", "").lower()
 
-        # Simple keyword mapping
+        # Keyword to category code mapping (using actual database category codes)
         keyword_map = {
-            "laptop": ("A", "IT Hardware"),
-            "computer": ("A", "IT Hardware"),
-            "software": ("A", "IT Software"),
-            "office supplies": ("B", "Office Supplies"),
-            "furniture": ("B", "Office Furniture"),
-            "consulting": ("C", "Consulting Services"),
-            "marketing": ("D", "Marketing Services"),
-            "travel": ("E", "Travel Services"),
+            # IT-related
+            "laptop": "029",  # Hardware
+            "computer": "029",  # Hardware
+            "pc": "029",  # Hardware
+            "monitor": "029",  # Hardware
+            "keyboard": "029",  # Hardware
+            "mouse": "029",  # Hardware
+            "server": "029",  # Hardware
+            "hardware": "029",  # Hardware
+            "software": "031",  # Software
+            "license": "031",  # Software
+            "saas": "031",  # Software
+            "it service": "030",  # IT Services
+            # Office
+            "office equipment": "015",  # Office Equipment
+            "furniture": "015",  # Office Equipment
+            "desk": "015",  # Office Equipment
+            "chair": "015",  # Office Equipment
+            # Services
+            "consulting": "004",  # Consulting
+            "consultant": "004",  # Consulting
+            "beratung": "004",  # Consulting (German)
+            "training": "008",  # Professional Development
+            "schulung": "008",  # Professional Development (German)
+            # Marketing
+            "marketing": "038",  # Marketing Agencies
+            "advertising": "036",  # Advertising
+            "werbung": "036",  # Advertising (German)
+            "event": "042",  # Events
+            # Maintenance
+            "cleaning": "019",  # Cleaning
+            "reinigung": "019",  # Cleaning (German)
+            "maintenance": "017",  # Maintenance
+            "wartung": "017",  # Maintenance (German)
+            "repair": "050",  # Maintenance and Repairs
+            "reparatur": "050",  # Maintenance and Repairs (German)
         }
 
-        for keyword, (category, name) in keyword_map.items():
+        for keyword, category_code in keyword_map.items():
             if keyword in all_text:
+                logger.info(f"Keyword match found: '{keyword}' -> category {category_code}")
                 group = self.db.query(CommodityGroup).filter(
-                    CommodityGroup.category == category
+                    CommodityGroup.category == category_code
                 ).first()
 
-                return CommodityGroupSuggestion(
-                    commodity_group_id=group.id if group else None,
-                    category=category,
-                    name=name,
-                    confidence=0.3,
-                    explanation=f"Keyword match: '{keyword}' found in request",
-                )
+                if group:
+                    logger.info(f"Returning keyword-based suggestion: {group.id} - {group.name}")
+                    return CommodityGroupSuggestion(
+                        commodity_group_id=group.id,
+                        category=group.category,
+                        name=group.name,
+                        confidence=0.4,
+                        explanation=f"Keyword match: '{keyword}' found in request",
+                    )
+                else:
+                    logger.warning(f"Keyword matched but no group found for category {category_code}")
 
-        # Default
+        # Default - return first group
         default_group = self.db.query(CommodityGroup).first()
         return CommodityGroupSuggestion(
             commodity_group_id=default_group.id if default_group else None,
-            category=default_group.category if default_group else "A",
+            category=default_group.category if default_group else "001",
             name=default_group.name if default_group else "General",
             confidence=0.1,
             explanation="No strong match found. Please review and select manually.",
