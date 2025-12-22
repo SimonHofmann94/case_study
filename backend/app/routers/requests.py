@@ -5,6 +5,8 @@ This module provides API endpoints for procurement request operations.
 """
 
 import math
+from datetime import datetime
+from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
@@ -19,10 +21,12 @@ from app.schemas.request import (
     RequestCreate,
     RequestUpdate,
     RequestStatusUpdate,
+    ProcurementNoteCreate,
     RequestResponse,
     RequestDetailResponse,
     RequestListResponse,
 )
+from app.schemas.analytics import RequestAnalytics, FilterOptions
 from app.schemas.status_history import StatusHistoryResponse
 from app.services.request_service import (
     RequestService,
@@ -76,6 +80,53 @@ async def create_request(
 
 
 @router.get(
+    "/analytics",
+    response_model=RequestAnalytics,
+    summary="Get request analytics",
+    description="Get analytics summary with counts and total values by status. Procurement team only.",
+)
+@limiter.limit("100/hour")
+async def get_analytics(
+    request: Request,
+    current_user: User = Depends(get_procurement_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get analytics summary for procurement dashboard.
+
+    - Returns counts for open, in_progress, and closed requests
+    - Returns total value for each status
+    - Only accessible by procurement team
+    """
+    service = RequestService(db)
+    return service.get_analytics()
+
+
+@router.get(
+    "/filter-options",
+    response_model=FilterOptions,
+    summary="Get filter options",
+    description="Get available filter options for the procurement dashboard. Procurement team only.",
+)
+@limiter.limit("100/hour")
+async def get_filter_options(
+    request: Request,
+    current_user: User = Depends(get_procurement_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get available filter options for the procurement dashboard.
+
+    - Returns unique departments
+    - Returns unique vendor names
+    - Returns list of requestors who have created requests
+    - Only accessible by procurement team
+    """
+    service = RequestService(db)
+    return service.get_filter_options()
+
+
+@router.get(
     "",
     response_model=RequestListResponse,
     summary="List procurement requests",
@@ -89,6 +140,14 @@ async def list_requests(
     search: Optional[str] = Query(None, description="Search in title and vendor name"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
+    # Enhanced filters for procurement dashboard
+    date_from: Optional[datetime] = Query(None, description="Filter from date (ISO format)"),
+    date_to: Optional[datetime] = Query(None, description="Filter to date (ISO format)"),
+    vendor: Optional[str] = Query(None, description="Filter by vendor name"),
+    commodity_group_id: Optional[UUID] = Query(None, description="Filter by commodity group"),
+    min_cost: Optional[Decimal] = Query(None, description="Minimum total cost"),
+    max_cost: Optional[Decimal] = Query(None, description="Maximum total cost"),
+    requestor_id: Optional[UUID] = Query(None, description="Filter by requestor (procurement only)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -97,8 +156,9 @@ async def list_requests(
 
     - Requestors can only see their own requests
     - Procurement team can see all requests
-    - Supports filtering by status and department
+    - Supports filtering by status, department, date range, vendor, commodity group, cost range
     - Supports search in title and vendor name
+    - Requestor filter only works for procurement team
     """
     service = RequestService(db)
     requests, total = service.list_requests(
@@ -109,6 +169,13 @@ async def list_requests(
         search=search,
         page=page,
         page_size=page_size,
+        date_from=date_from,
+        date_to=date_to,
+        vendor_filter=vendor,
+        commodity_group_id=commodity_group_id,
+        min_cost=min_cost,
+        max_cost=max_cost,
+        requestor_id=requestor_id,
     )
 
     return RequestListResponse(
@@ -252,6 +319,51 @@ async def update_request_status(
     except InvalidStatusTransitionError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.post(
+    "/{request_id}/notes",
+    response_model=StatusHistoryResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add procurement note",
+    description="Add a note to a request without changing status. Procurement team only.",
+)
+@limiter.limit("100/hour")
+async def add_procurement_note(
+    request: Request,
+    request_id: UUID,
+    note_data: ProcurementNoteCreate,
+    current_user: User = Depends(get_procurement_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Add a procurement note to a request.
+
+    - Only procurement team members can add notes
+    - Does not change the request status
+    - Note is visible in status history to requestors
+    """
+    service = RequestService(db)
+    try:
+        history_entry = service.add_procurement_note(
+            request_id=request_id,
+            user_id=current_user.id,
+            notes=note_data.notes,
+        )
+        return StatusHistoryResponse(
+            id=history_entry.id,
+            request_id=history_entry.request_id,
+            status=history_entry.status,
+            changed_by_user_id=history_entry.changed_by_user_id,
+            changed_at=history_entry.changed_at,
+            notes=history_entry.notes,
+            changed_by_name=current_user.full_name,
+        )
+    except RequestNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         )
 

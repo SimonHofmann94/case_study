@@ -10,12 +10,13 @@ from decimal import Decimal
 from typing import List, Optional, Tuple
 from uuid import UUID
 
-from sqlalchemy import desc, or_
+from sqlalchemy import desc, or_, func
 from sqlalchemy.orm import Session, joinedload
 
 from app.auth.models import User, UserRole
 from app.models import Request, RequestStatus, OrderLine, StatusHistory, CommodityGroup
 from app.schemas.request import RequestCreate, RequestUpdate, RequestStatusUpdate
+from app.schemas.analytics import RequestAnalytics, FilterOptions, RequestorInfo
 from app.services.validation_service import ValidationService
 
 
@@ -177,6 +178,14 @@ class RequestService:
         search: Optional[str] = None,
         page: int = 1,
         page_size: int = 10,
+        # Enhanced filters for procurement dashboard
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+        vendor_filter: Optional[str] = None,
+        commodity_group_id: Optional[UUID] = None,
+        min_cost: Optional[Decimal] = None,
+        max_cost: Optional[Decimal] = None,
+        requestor_id: Optional[UUID] = None,
     ) -> Tuple[List[Request], int]:
         """
         List requests with filtering and pagination.
@@ -189,12 +198,20 @@ class RequestService:
             search: Search in title and vendor name
             page: Page number (1-based)
             page_size: Number of items per page
+            date_from: Filter by created_at >= date_from
+            date_to: Filter by created_at <= date_to
+            vendor_filter: Filter by vendor name
+            commodity_group_id: Filter by commodity group
+            min_cost: Filter by total_cost >= min_cost
+            max_cost: Filter by total_cost <= max_cost
+            requestor_id: Filter by user_id (procurement only)
 
         Returns:
             Tuple of (list of requests, total count)
         """
         query = self.db.query(Request).options(
             joinedload(Request.commodity_group),
+            joinedload(Request.user),
         )
 
         # Permission filter: requestors only see their own requests
@@ -216,6 +233,29 @@ class RequestService:
                     Request.vendor_name.ilike(search_pattern),
                 )
             )
+
+        # Enhanced filters
+        if date_from:
+            query = query.filter(Request.created_at >= date_from)
+
+        if date_to:
+            query = query.filter(Request.created_at <= date_to)
+
+        if vendor_filter:
+            query = query.filter(Request.vendor_name.ilike(f"%{vendor_filter}%"))
+
+        if commodity_group_id:
+            query = query.filter(Request.commodity_group_id == commodity_group_id)
+
+        if min_cost is not None:
+            query = query.filter(Request.total_cost >= min_cost)
+
+        if max_cost is not None:
+            query = query.filter(Request.total_cost <= max_cost)
+
+        # Requestor filter (only for procurement team)
+        if requestor_id and user_role == UserRole.PROCUREMENT_TEAM:
+            query = query.filter(Request.user_id == requestor_id)
 
         # Get total count before pagination
         total = query.count()
@@ -418,3 +458,120 @@ class RequestService:
         self.db.commit()
 
         return True
+
+    def get_analytics(self) -> RequestAnalytics:
+        """
+        Get analytics summary for all requests.
+
+        Returns:
+            RequestAnalytics with counts and total values per status
+        """
+        # Query counts and sums grouped by status
+        results = self.db.query(
+            Request.status,
+            func.count(Request.id).label('count'),
+            func.coalesce(func.sum(Request.total_cost), 0).label('total_value')
+        ).group_by(Request.status).all()
+
+        # Initialize with zeros
+        analytics = {
+            RequestStatus.OPEN: {'count': 0, 'value': Decimal('0')},
+            RequestStatus.IN_PROGRESS: {'count': 0, 'value': Decimal('0')},
+            RequestStatus.CLOSED: {'count': 0, 'value': Decimal('0')},
+        }
+
+        # Populate from results
+        for status, count, total_value in results:
+            analytics[status] = {
+                'count': count,
+                'value': Decimal(str(total_value)) if total_value else Decimal('0')
+            }
+
+        return RequestAnalytics(
+            open_count=analytics[RequestStatus.OPEN]['count'],
+            in_progress_count=analytics[RequestStatus.IN_PROGRESS]['count'],
+            closed_count=analytics[RequestStatus.CLOSED]['count'],
+            total_open_value=analytics[RequestStatus.OPEN]['value'],
+            total_in_progress_value=analytics[RequestStatus.IN_PROGRESS]['value'],
+            total_closed_value=analytics[RequestStatus.CLOSED]['value'],
+        )
+
+    def get_filter_options(self) -> FilterOptions:
+        """
+        Get available filter options for the procurement dashboard.
+
+        Returns:
+            FilterOptions with unique departments, vendors, and requestors
+        """
+        # Get unique departments
+        departments = self.db.query(Request.department).distinct().filter(
+            Request.department.isnot(None)
+        ).order_by(Request.department).all()
+        department_list = [d[0] for d in departments if d[0]]
+
+        # Get unique vendors
+        vendors = self.db.query(Request.vendor_name).distinct().filter(
+            Request.vendor_name.isnot(None)
+        ).order_by(Request.vendor_name).all()
+        vendor_list = [v[0] for v in vendors if v[0]]
+
+        # Get requestors (users who have created requests)
+        requestor_ids = self.db.query(Request.user_id).distinct().all()
+        requestor_id_list = [r[0] for r in requestor_ids]
+
+        requestors = self.db.query(User).filter(
+            User.id.in_(requestor_id_list)
+        ).order_by(User.full_name).all()
+
+        requestor_list = [
+            RequestorInfo(id=u.id, full_name=u.full_name, email=u.email)
+            for u in requestors
+        ]
+
+        return FilterOptions(
+            departments=department_list,
+            vendors=vendor_list,
+            requestors=requestor_list,
+        )
+
+    def add_procurement_note(
+        self,
+        request_id: UUID,
+        user_id: UUID,
+        notes: str,
+    ) -> StatusHistory:
+        """
+        Add a procurement note to a request without changing status.
+
+        Args:
+            request_id: ID of the request
+            user_id: ID of the procurement user adding the note
+            notes: Note content
+
+        Returns:
+            Created StatusHistory entry
+
+        Raises:
+            RequestNotFoundError: If request doesn't exist
+        """
+        request = self.db.query(Request).filter(Request.id == request_id).first()
+
+        if not request:
+            raise RequestNotFoundError(f"Request {request_id} not found")
+
+        # Create status history entry with current status and notes
+        status_history = StatusHistory(
+            request_id=request.id,
+            status=request.status,
+            changed_by_user_id=user_id,
+            notes=notes,
+        )
+        self.db.add(status_history)
+
+        # Update the request's updated_at timestamp
+        request.updated_at = datetime.utcnow()
+
+        self.db.commit()
+        self.db.refresh(status_history)
+
+        return status_history

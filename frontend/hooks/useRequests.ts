@@ -4,17 +4,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   requestsApi,
   RequestStatus,
+  RequestFilters,
   CreateRequestData,
   UpdateRequestData,
   ProcurementRequest,
 } from '@/lib/api';
 
-export function useRequests(params?: {
-  page?: number;
-  page_size?: number;
-  status?: RequestStatus;
-  department?: string;
-}) {
+export function useRequests(params?: RequestFilters) {
   return useQuery({
     queryKey: ['requests', params],
     queryFn: () => requestsApi.list(params),
@@ -88,6 +84,34 @@ export function useDeleteRequest() {
   return useMutation({
     mutationFn: (id: string) => requestsApi.delete(id),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['requests'] });
+    },
+  });
+}
+
+// Analytics hooks (procurement team only)
+export function useRequestAnalytics() {
+  return useQuery({
+    queryKey: ['request-analytics'],
+    queryFn: () => requestsApi.getAnalytics(),
+  });
+}
+
+export function useFilterOptions() {
+  return useQuery({
+    queryKey: ['filter-options'],
+    queryFn: () => requestsApi.getFilterOptions(),
+  });
+}
+
+export function useAddProcurementNote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
+      requestsApi.addNote(id, notes),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['request-history', id] });
       queryClient.invalidateQueries({ queryKey: ['requests'] });
     },
   });

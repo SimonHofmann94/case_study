@@ -177,14 +177,56 @@ export interface RequestListResponse {
   page_size: number;
 }
 
+// Analytics types
+export interface RequestAnalytics {
+  open_count: number;
+  in_progress_count: number;
+  closed_count: number;
+  total_open_value: number;
+  total_in_progress_value: number;
+  total_closed_value: number;
+}
+
+export interface RequestorInfo {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
+export interface FilterOptions {
+  departments: string[];
+  vendors: string[];
+  requestors: RequestorInfo[];
+}
+
+export interface RequestFilters {
+  page?: number;
+  page_size?: number;
+  status?: RequestStatus;
+  department?: string;
+  search?: string;
+  date_from?: string;
+  date_to?: string;
+  vendor?: string;
+  commodity_group_id?: string;
+  min_cost?: number;
+  max_cost?: number;
+  requestor_id?: string;
+}
+
+export interface StatusHistoryEntry {
+  id: string;
+  request_id: string;
+  status: RequestStatus;
+  changed_by_user_id: string | null;
+  changed_at: string;
+  notes: string | null;
+  changed_by_name: string | null;
+}
+
 // Request API functions
 export const requestsApi = {
-  list: async (params?: {
-    page?: number;
-    page_size?: number;
-    status?: RequestStatus;
-    department?: string;
-  }): Promise<RequestListResponse> => {
+  list: async (params?: RequestFilters): Promise<RequestListResponse> => {
     const response = await api.get<RequestListResponse>('/requests', { params });
     return response.data;
   },
@@ -213,14 +255,24 @@ export const requestsApi = {
     await api.delete(`/requests/${id}`);
   },
 
-  getHistory: async (id: string): Promise<Array<{
-    id: string;
-    status: RequestStatus;
-    changed_by_user_id: string;
-    changed_at: string;
-    notes: string | null;
-  }>> => {
-    const response = await api.get(`/requests/${id}/history`);
+  getHistory: async (id: string): Promise<StatusHistoryEntry[]> => {
+    const response = await api.get<StatusHistoryEntry[]>(`/requests/${id}/history`);
+    return response.data;
+  },
+
+  // Analytics endpoints (procurement team only)
+  getAnalytics: async (): Promise<RequestAnalytics> => {
+    const response = await api.get<RequestAnalytics>('/requests/analytics');
+    return response.data;
+  },
+
+  getFilterOptions: async (): Promise<FilterOptions> => {
+    const response = await api.get<FilterOptions>('/requests/filter-options');
+    return response.data;
+  },
+
+  addNote: async (id: string, notes: string): Promise<StatusHistoryEntry> => {
+    const response = await api.post<StatusHistoryEntry>(`/requests/${id}/notes`, { notes });
     return response.data;
   },
 };

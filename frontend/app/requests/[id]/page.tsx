@@ -36,8 +36,12 @@ import {
   useRequestHistory,
   useUpdateRequestStatus,
   useDeleteRequest,
+  useAddProcurementNote,
 } from '@/hooks/useRequests';
 import { RequestStatus } from '@/lib/api';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { MessageSquarePlus, Send } from 'lucide-react';
 
 const statusTransitions: Record<RequestStatus, RequestStatus[]> = {
   open: ['in_progress', 'closed'],
@@ -49,14 +53,31 @@ function RequestDetailContent({ id }: { id: string }) {
   const router = useRouter();
   const { user } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState('');
+  const [showNoteForm, setShowNoteForm] = useState(false);
 
   const { data: request, isLoading, error: fetchError } = useRequest(id);
   const { data: history } = useRequestHistory(id);
   const updateStatus = useUpdateRequestStatus();
   const deleteRequest = useDeleteRequest();
+  const addNote = useAddProcurementNote();
 
   const isProcurementTeam = user?.role === 'procurement_team';
   const canDelete = request?.status === 'open';
+
+  const handleAddNote = async () => {
+    if (!noteText.trim()) return;
+
+    setError(null);
+    try {
+      await addNote.mutateAsync({ id, notes: noteText.trim() });
+      setNoteText('');
+      setShowNoteForm(false);
+    } catch (err) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      setError(error.response?.data?.detail || 'Failed to add note');
+    }
+  };
 
   const handleStatusChange = async (newStatus: RequestStatus) => {
     setError(null);
@@ -298,13 +319,64 @@ function RequestDetailContent({ id }: { id: string }) {
         )}
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-4 w-4" />
               Status History
             </CardTitle>
+            {isProcurementTeam && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowNoteForm(!showNoteForm)}
+              >
+                <MessageSquarePlus className="h-4 w-4 mr-2" />
+                Add Note
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
+            {/* Note Form for Procurement Team */}
+            {showNoteForm && isProcurementTeam && (
+              <div className="mb-6 p-4 border rounded-lg bg-muted/50">
+                <Label htmlFor="note" className="text-sm font-medium">
+                  Add a note for the requestor
+                </Label>
+                <Textarea
+                  id="note"
+                  placeholder="Enter your note here... This will be visible to the requestor."
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  className="mt-2"
+                  rows={3}
+                />
+                <div className="flex gap-2 mt-3">
+                  <Button
+                    size="sm"
+                    onClick={handleAddNote}
+                    disabled={addNote.isPending || !noteText.trim()}
+                  >
+                    {addNote.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-2" />
+                    )}
+                    Send Note
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setShowNoteForm(false);
+                      setNoteText('');
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {history && history.length > 0 ? (
               <div className="space-y-4">
                 {history.map((entry, index) => (
@@ -322,9 +394,9 @@ function RequestDetailContent({ id }: { id: string }) {
                         </span>
                       </div>
                       {entry.notes && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {entry.notes}
-                        </p>
+                        <div className="mt-2 p-3 bg-muted rounded-md">
+                          <p className="text-sm">{entry.notes}</p>
+                        </div>
                       )}
                     </div>
                   </div>

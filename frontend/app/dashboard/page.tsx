@@ -13,8 +13,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { ProcurementDashboard } from '@/components/procurement/ProcurementDashboard';
 
-function DashboardContent() {
+// Requestor Dashboard - for regular users
+function RequestorDashboard() {
   const { user, logout } = useAuth();
 
   return (
@@ -24,7 +26,7 @@ function DashboardContent() {
           <h1 className="text-xl font-bold">Procurement AI</h1>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">
-              {user?.full_name} ({user?.role === 'procurement_team' ? 'Procurement Team' : 'Requestor'})
+              {user?.full_name} (Requestor)
             </span>
             <Button variant="ghost" size="sm" onClick={logout}>
               <LogOut className="h-4 w-4 mr-2" />
@@ -40,9 +42,7 @@ function DashboardContent() {
             Welcome back, {user?.full_name?.split(' ')[0]}!
           </h2>
           <p className="text-muted-foreground mt-2">
-            {user?.role === 'procurement_team'
-              ? 'Review and manage procurement requests from all departments.'
-              : 'Create and track your procurement requests.'}
+            Create and track your procurement requests.
           </p>
         </div>
 
@@ -79,9 +79,7 @@ function DashboardContent() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                {user?.role === 'procurement_team'
-                  ? 'Review all submitted procurement requests.'
-                  : 'Track the status of your submitted requests.'}
+                Track the status of your submitted requests.
               </p>
               <Link href="/requests">
                 <Button variant="outline" className="w-full">
@@ -90,31 +88,58 @@ function DashboardContent() {
               </Link>
             </CardContent>
           </Card>
-
-          {user?.role === 'procurement_team' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Pending Review</CardTitle>
-                <CardDescription>
-                  Requests awaiting your action
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Review and approve or reject pending requests.
-                </p>
-                <Link href="/requests?status=open">
-                  <Button variant="secondary" className="w-full">
-                    Review Pending
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </main>
     </div>
   );
+}
+
+// Procurement Team Dashboard - with analytics and management features
+function ProcurementTeamDashboard() {
+  const { user, logout } = useAuth();
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <h1 className="text-xl font-bold">Procurement AI</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">
+              {user?.full_name} (Procurement Team)
+            </span>
+            <Button variant="ghost" size="sm" onClick={logout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign out
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold tracking-tight">
+            Procurement Dashboard
+          </h2>
+          <p className="text-muted-foreground mt-2">
+            Review and manage procurement requests from all departments.
+          </p>
+        </div>
+
+        <ProcurementDashboard />
+      </main>
+    </div>
+  );
+}
+
+function DashboardContent() {
+  const { user } = useAuth();
+
+  // Show procurement dashboard for procurement team, regular dashboard for requestors
+  if (user?.role === 'procurement_team') {
+    return <ProcurementTeamDashboard />;
+  }
+
+  return <RequestorDashboard />;
 }
 
 export default function DashboardPage() {

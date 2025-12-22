@@ -217,6 +217,25 @@ class RequestStatusUpdate(BaseModel):
     )
 
 
+class ProcurementNoteCreate(BaseModel):
+    """Schema for adding a procurement note to a request."""
+
+    notes: str = Field(
+        ...,
+        min_length=1,
+        max_length=1000,
+        description="Note content from procurement team",
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "notes": "Waiting for vendor to confirm delivery date. Will update once confirmed.",
+            }
+        }
+    )
+
+
 class RequestResponse(RequestBase):
     """Schema for request in API responses."""
 
