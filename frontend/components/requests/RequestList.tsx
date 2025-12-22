@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { FileText, Plus, Loader2 } from 'lucide-react';
+import { FileText, Plus, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -112,10 +113,23 @@ export function RequestList({ statusFilter, onStatusFilterChange }: RequestListP
 }
 
 function RequestCard({ request }: { request: ProcurementRequest }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Check if any order line has a detailed description
+  const hasDetailedDescriptions = request.order_lines?.some(
+    (line) => line.detailed_description
+  );
+
+  const handleExpandClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsExpanded(!isExpanded);
+  };
+
   return (
-    <Link href={`/requests/${request.id}`}>
-      <Card className="hover:border-primary/50 transition-colors cursor-pointer">
-        <CardHeader className="pb-3">
+    <Card className="hover:border-primary/50 transition-colors">
+      <Link href={`/requests/${request.id}`}>
+        <CardHeader className="pb-3 cursor-pointer">
           <div className="flex items-start justify-between">
             <div>
               <CardTitle className="text-lg">{request.title}</CardTitle>
@@ -126,7 +140,7 @@ function RequestCard({ request }: { request: ProcurementRequest }) {
             <StatusBadge status={request.status} />
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="cursor-pointer">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-4 text-muted-foreground">
               <span>{request.order_lines?.length || 0} items</span>
@@ -142,7 +156,39 @@ function RequestCard({ request }: { request: ProcurementRequest }) {
             </div>
           </div>
         </CardContent>
-      </Card>
-    </Link>
+      </Link>
+
+      {/* Expandable details section */}
+      {hasDetailedDescriptions && (
+        <CardContent className="pt-0">
+          <button
+            onClick={handleExpandClick}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors w-full"
+          >
+            {isExpanded ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+            <span>{isExpanded ? 'Hide details' : 'Show details'}</span>
+          </button>
+
+          {isExpanded && (
+            <div className="mt-3 space-y-2 border-t pt-3">
+              {request.order_lines?.map((line, index) => (
+                <div key={index} className="text-sm">
+                  <div className="font-medium">{line.description}</div>
+                  {line.detailed_description && (
+                    <div className="text-muted-foreground text-xs mt-1 whitespace-pre-wrap">
+                      {line.detailed_description}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      )}
+    </Card>
   );
 }

@@ -28,9 +28,16 @@ Your task is to extract the following information from vendor offers:
 
 1. Vendor name (company name)
 2. VAT ID (German format: DE followed by 9 digits, e.g., DE123456789)
-3. Currency (default EUR if not specified)
+   - Look for: "USt-IdNr", "USt-ID", "Umsatzsteuer-ID", "VAT ID", "VAT-ID", "UID", "Steuernummer"
+   - Format must be: DE followed by 9 digits (e.g., DE123456789)
+3. Offer date (the date of the vendor offer/quote, NOT the current date)
+   - Look for: "Angebotsdatum", "Datum", "Date", "Offer date", "Quote date"
+   - Format as: YYYY-MM-DD
+4. Offer number (the vendor's quote/offer reference number)
+   - Look for: "Angebotsnummer", "Angebot Nr.", "Quote #", "Offer No.", "Reference"
+5. Currency (default EUR if not specified)
 
-4. Order lines (items being offered):
+6. Order lines (items being offered):
    For EACH item, extract:
    - line_type: "standard" if included in the total price, "alternative" if it's an alternative option not in total, "optional" if it's an optional add-on not in total
    - description: Short title/header of the item
@@ -42,7 +49,7 @@ Your task is to extract the following information from vendor offers:
    - discount_amount: Calculated discount amount (if applicable)
    - line_total_net: Line total after discount, before tax
 
-5. Totals section:
+7. Totals section:
    - subtotal_net: Sum of all STANDARD line totals (before tax, excluding alternatives/optionals)
    - discount_total: Offer-wide discount amount (if any)
    - delivery_cost_net: Delivery/shipping cost before tax
@@ -51,7 +58,7 @@ Your task is to extract the following information from vendor offers:
    - tax_amount: Tax amount on items (not including delivery tax)
    - total_gross: Final total including all taxes
 
-6. Terms and Conditions:
+8. Terms and Conditions:
    - payment_terms: Payment terms (e.g., "30 days net", "14 days 2% discount")
    - delivery_terms: Delivery time or terms (e.g., "2-3 weeks", "within 10 business days")
    - validity_period: How long the offer is valid (e.g., "30 days", "until 2024-03-31")
@@ -83,7 +90,7 @@ Output your response in TOON format (Token Oriented Object Notation):
 - Use [] for arrays
 
 Example TOON output:
-vendor_name:Dell Technologies GmbH|vat_id:DE123456789|currency:EUR|order_lines:[{line_type:standard|description:Laptop XPS 15|detailed_description:Intel i7, 32GB RAM, 1TB SSD|unit_price_net:1.299,99|amount:5|unit:pcs|discount_percent:10|line_total_net:5.849,96};{line_type:alternative|description:Laptop XPS 17|detailed_description:Intel i9, 64GB RAM|unit_price_net:2.499,99|amount:5|unit:pcs|line_total_net:12.499,95}]|subtotal_net:5.849,96|delivery_cost_net:49,99|delivery_tax_amount:9,50|tax_rate:19|tax_amount:1.111,49|total_gross:7.020,94|payment_terms:30 days net|delivery_terms:2-3 weeks|validity_period:30 days|warranty_terms:24 months|other_terms:null
+vendor_name:Dell Technologies GmbH|vat_id:DE123456789|offer_date:2024-01-15|offer_number:ANG-2024-001|currency:EUR|order_lines:[{line_type:standard|description:Laptop XPS 15|detailed_description:Intel i7, 32GB RAM, 1TB SSD|unit_price_net:1.299,99|amount:5|unit:pcs|discount_percent:10|line_total_net:5.849,96};{line_type:alternative|description:Laptop XPS 17|detailed_description:Intel i9, 64GB RAM|unit_price_net:2.499,99|amount:5|unit:pcs|line_total_net:12.499,95}]|subtotal_net:5.849,96|delivery_cost_net:49,99|delivery_tax_amount:9,50|tax_rate:19|tax_amount:1.111,49|total_gross:7.020,94|payment_terms:30 days net|delivery_terms:2-3 weeks|validity_period:30 days|warranty_terms:24 months|other_terms:null
 
 IMPORTANT: Return all prices as STRINGS exactly as they appear in the document (e.g., "1.186,14" for German format).
 ONLY output the TOON formatted data, nothing else.
@@ -94,6 +101,8 @@ Output your response as valid JSON with this structure:
 {
   "vendor_name": "Company Name",
   "vat_id": "DE123456789",
+  "offer_date": "2024-01-15",
+  "offer_number": "ANG-2024-001",
   "currency": "EUR",
   "order_lines": [
     {
@@ -282,6 +291,8 @@ class OfferParsingService:
         return ParsedVendorOffer(
             vendor_name=data.get("vendor_name") or "Unknown Vendor",
             vat_id=data.get("vat_id"),
+            offer_date=data.get("offer_date"),
+            offer_number=data.get("offer_number"),
             currency=data.get("currency", "EUR"),
             order_lines=order_lines,
             subtotal_net=subtotal_net,

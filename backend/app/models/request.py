@@ -28,7 +28,7 @@ class RequestStatus(str, enum.Enum):
 VALID_STATUS_TRANSITIONS = {
     RequestStatus.OPEN: [RequestStatus.IN_PROGRESS, RequestStatus.CLOSED],
     RequestStatus.IN_PROGRESS: [RequestStatus.CLOSED, RequestStatus.OPEN],
-    RequestStatus.CLOSED: [],  # Closed requests cannot be reopened
+    RequestStatus.CLOSED: [RequestStatus.OPEN, RequestStatus.IN_PROGRESS],  # Allow reopening
 }
 
 
@@ -155,6 +155,44 @@ class Request(Base):
         Numeric(precision=12, scale=2),
         nullable=True,
         doc="Tax amount on items",
+    )
+
+    # Offer metadata
+    offer_date = Column(
+        String(50),
+        nullable=True,
+        doc="Date of the vendor offer",
+    )
+
+    # Terms and conditions from vendor offer
+    payment_terms = Column(
+        String(255),
+        nullable=True,
+        doc="Payment terms (e.g., '30 days net')",
+    )
+
+    delivery_terms = Column(
+        String(255),
+        nullable=True,
+        doc="Delivery time or terms",
+    )
+
+    validity_period = Column(
+        String(255),
+        nullable=True,
+        doc="How long the offer is valid",
+    )
+
+    warranty_terms = Column(
+        String(255),
+        nullable=True,
+        doc="Warranty information",
+    )
+
+    other_terms = Column(
+        Text,
+        nullable=True,
+        doc="Any other important terms or conditions",
     )
 
     status = Column(

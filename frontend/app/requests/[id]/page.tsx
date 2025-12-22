@@ -10,6 +10,11 @@ import {
   Building,
   FileText,
   Trash2,
+  AlertTriangle,
+  Calendar,
+  Truck,
+  Shield,
+  Info,
 } from 'lucide-react';
 
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -55,6 +60,8 @@ function RequestDetailContent({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [noteText, setNoteText] = useState('');
   const [showNoteForm, setShowNoteForm] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<RequestStatus | null>(null);
+  const [showStatusConfirm, setShowStatusConfirm] = useState(false);
 
   const { data: request, isLoading, error: fetchError } = useRequest(id);
   const { data: history } = useRequestHistory(id);
@@ -64,6 +71,7 @@ function RequestDetailContent({ id }: { id: string }) {
 
   const isProcurementTeam = user?.role === 'procurement_team';
   const canDelete = request?.status === 'open';
+  const backUrl = isProcurementTeam ? '/dashboard' : '/requests';
 
   const handleAddNote = async () => {
     if (!noteText.trim()) return;
@@ -79,14 +87,30 @@ function RequestDetailContent({ id }: { id: string }) {
     }
   };
 
-  const handleStatusChange = async (newStatus: RequestStatus) => {
+  const handleStatusChangeRequest = (newStatus: RequestStatus) => {
+    setPendingStatus(newStatus);
+    setShowStatusConfirm(true);
+  };
+
+  const handleStatusChangeConfirm = async () => {
+    if (!pendingStatus) return;
+
     setError(null);
     try {
-      await updateStatus.mutateAsync({ id, status: newStatus });
+      await updateStatus.mutateAsync({ id, status: pendingStatus });
+      setShowStatusConfirm(false);
+      setPendingStatus(null);
     } catch (err) {
       const error = err as { response?: { data?: { detail?: string } } };
       setError(error.response?.data?.detail || 'Failed to update status');
+      setShowStatusConfirm(false);
+      setPendingStatus(null);
     }
+  };
+
+  const handleStatusChangeCancel = () => {
+    setShowStatusConfirm(false);
+    setPendingStatus(null);
   };
 
   const handleDelete = async () => {
@@ -97,7 +121,7 @@ function RequestDetailContent({ id }: { id: string }) {
     setError(null);
     try {
       await deleteRequest.mutateAsync(id);
-      router.push('/requests');
+      router.push(backUrl);
     } catch (err) {
       const error = err as { response?: { data?: { detail?: string } } };
       setError(error.response?.data?.detail || 'Failed to delete request');
@@ -117,10 +141,10 @@ function RequestDetailContent({ id }: { id: string }) {
       <div className="min-h-screen bg-background">
         <header className="border-b">
           <div className="container mx-auto px-4 py-4">
-            <Link href="/requests">
+            <Link href={backUrl}>
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Requests
+                {isProcurementTeam ? 'Back to Dashboard' : 'Back to Requests'}
               </Button>
             </Link>
           </div>
@@ -140,10 +164,10 @@ function RequestDetailContent({ id }: { id: string }) {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/requests">
+          <Link href={backUrl}>
             <Button variant="ghost" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Requests
+              {isProcurementTeam ? 'Back to Dashboard' : 'Back to Requests'}
             </Button>
           </Link>
           {canDelete && (
@@ -173,6 +197,43 @@ function RequestDetailContent({ id }: { id: string }) {
           </Alert>
         )}
 
+        {/* Status Change Confirmation Dialog */}
+        {showStatusConfirm && pendingStatus && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <Card className="w-full max-w-md mx-4">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                  Confirm Status Change
+                </CardTitle>
+                <CardDescription>
+                  Are you sure you want to change the status from{' '}
+                  <strong>{request.status.replace('_', ' ')}</strong> to{' '}
+                  <strong>{pendingStatus.replace('_', ' ')}</strong>?
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex gap-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={handleStatusChangeCancel}
+                  disabled={updateStatus.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleStatusChangeConfirm}
+                  disabled={updateStatus.isPending}
+                >
+                  {updateStatus.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : null}
+                  Confirm
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         <div className="flex items-start justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{request.title}</h1>
@@ -186,7 +247,7 @@ function RequestDetailContent({ id }: { id: string }) {
             {isProcurementTeam && (
               <Select
                 value={request.status}
-                onValueChange={(value) => handleStatusChange(value as RequestStatus)}
+                onValueChange={(value) => handleStatusChangeRequest(value as RequestStatus)}
                 disabled={updateStatus.isPending}
               >
                 <SelectTrigger className="w-[160px]">
@@ -270,8 +331,15 @@ function RequestDetailContent({ id }: { id: string }) {
                 </thead>
                 <tbody>
                   {request.order_lines?.map((line, index) => (
-                    <tr key={index} className="border-b last:border-0">
-                      <td className="py-3 pr-4">{line.description}</td>
+                    <tr key={index} className="border-b last:border-0 align-top">
+                      <td className="py-3 pr-4">
+                        <div className="font-medium">{line.description}</div>
+                        {line.detailed_description && (
+                          <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+                            {line.detailed_description}
+                          </div>
+                        )}
+                      </td>
                       <td className="py-3 px-4 text-right">
                         {line.unit_price.toLocaleString('de-DE', {
                           style: 'currency',
@@ -306,6 +374,83 @@ function RequestDetailContent({ id }: { id: string }) {
             </div>
           </CardContent>
         </Card>
+
+        {/* Offer Details & Terms - shown if any terms exist */}
+        {(request.offer_date || request.payment_terms || request.delivery_terms || request.validity_period || request.warranty_terms || request.other_terms) && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Offer Details & Terms
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Offer metadata */}
+              {request.offer_date && (
+                <div className="flex items-start gap-2">
+                  <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Offer Date</p>
+                    <p className="text-sm text-muted-foreground">{request.offer_date}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Terms grid */}
+              {(request.payment_terms || request.delivery_terms || request.validity_period || request.warranty_terms) && (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {request.payment_terms && (
+                    <div className="flex items-start gap-2">
+                      <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Payment Terms</p>
+                        <p className="text-sm text-muted-foreground">{request.payment_terms}</p>
+                      </div>
+                    </div>
+                  )}
+                  {request.delivery_terms && (
+                    <div className="flex items-start gap-2">
+                      <Truck className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Delivery Terms</p>
+                        <p className="text-sm text-muted-foreground">{request.delivery_terms}</p>
+                      </div>
+                    </div>
+                  )}
+                  {request.validity_period && (
+                    <div className="flex items-start gap-2">
+                      <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Valid Until</p>
+                        <p className="text-sm text-muted-foreground">{request.validity_period}</p>
+                      </div>
+                    </div>
+                  )}
+                  {request.warranty_terms && (
+                    <div className="flex items-start gap-2">
+                      <Shield className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Warranty</p>
+                        <p className="text-sm text-muted-foreground">{request.warranty_terms}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Other terms */}
+              {request.other_terms && (
+                <div className="flex items-start gap-2">
+                  <Info className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Other Terms</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{request.other_terms}</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {request.notes && (
           <Card className="mb-8">

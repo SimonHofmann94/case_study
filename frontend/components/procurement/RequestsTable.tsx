@@ -1,11 +1,12 @@
 'use client';
 
+import { useState, Fragment } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/requests/StatusBadge';
 import { ProcurementRequest, RequestFilters } from '@/lib/api';
-import { ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface RequestsTableProps {
   requests: ProcurementRequest[];
@@ -39,7 +40,24 @@ export function RequestsTable({
   onPageChange,
   isLoading,
 }: RequestsTableProps) {
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const totalPages = Math.ceil(total / pageSize);
+
+  const toggleRow = (id: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const hasDetailedDescriptions = (request: ProcurementRequest) => {
+    return request.order_lines?.some((line) => line.detailed_description);
+  };
 
   if (isLoading) {
     return (
@@ -77,6 +95,7 @@ export function RequestsTable({
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
+                    <th className="w-8 py-3 px-2"></th>
                     <th className="text-left py-3 px-2 font-medium text-muted-foreground">Title</th>
                     <th className="text-left py-3 px-2 font-medium text-muted-foreground">Vendor</th>
                     <th className="text-left py-3 px-2 font-medium text-muted-foreground">Department</th>
@@ -88,47 +107,87 @@ export function RequestsTable({
                   </tr>
                 </thead>
                 <tbody>
-                  {requests.map((request) => (
-                    <tr
-                      key={request.id}
-                      className="border-b hover:bg-muted/50 transition-colors"
-                    >
-                      <td className="py-3 px-2">
-                        <Link
-                          href={`/requests/${request.id}`}
-                          className="font-medium hover:underline"
+                  {requests.map((request) => {
+                    const hasDetails = hasDetailedDescriptions(request);
+                    const isExpanded = expandedRows.has(request.id);
+
+                    return (
+                      <Fragment key={request.id}>
+                        <tr
+                          className="border-b hover:bg-muted/50 transition-colors"
                         >
-                          {request.title}
-                        </Link>
-                      </td>
-                      <td className="py-3 px-2 text-muted-foreground">
-                        {request.vendor_name || '-'}
-                      </td>
-                      <td className="py-3 px-2 text-muted-foreground">
-                        {request.department || '-'}
-                      </td>
-                      <td className="py-3 px-2 text-muted-foreground">
-                        {/* We don't have requestor name in the list response yet */}
-                        -
-                      </td>
-                      <td className="py-3 px-2 text-right font-medium">
-                        {formatCurrency(request.total_cost)}
-                      </td>
-                      <td className="py-3 px-2 text-center">
-                        <StatusBadge status={request.status} />
-                      </td>
-                      <td className="py-3 px-2 text-muted-foreground">
-                        {formatDate(request.created_at)}
-                      </td>
-                      <td className="py-3 px-2 text-center">
-                        <Link href={`/requests/${request.id}`}>
-                          <Button variant="ghost" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
+                          <td className="py-3 px-2">
+                            {hasDetails && (
+                              <button
+                                onClick={() => toggleRow(request.id)}
+                                className="p-1 hover:bg-muted rounded transition-colors"
+                              >
+                                {isExpanded ? (
+                                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                )}
+                              </button>
+                            )}
+                          </td>
+                          <td className="py-3 px-2">
+                            <Link
+                              href={`/requests/${request.id}`}
+                              className="font-medium hover:underline"
+                            >
+                              {request.title}
+                            </Link>
+                          </td>
+                          <td className="py-3 px-2 text-muted-foreground">
+                            {request.vendor_name || '-'}
+                          </td>
+                          <td className="py-3 px-2 text-muted-foreground">
+                            {request.department || '-'}
+                          </td>
+                          <td className="py-3 px-2 text-muted-foreground">
+                            {/* We don't have requestor name in the list response yet */}
+                            -
+                          </td>
+                          <td className="py-3 px-2 text-right font-medium">
+                            {formatCurrency(request.total_cost)}
+                          </td>
+                          <td className="py-3 px-2 text-center">
+                            <StatusBadge status={request.status} />
+                          </td>
+                          <td className="py-3 px-2 text-muted-foreground">
+                            {formatDate(request.created_at)}
+                          </td>
+                          <td className="py-3 px-2 text-center">
+                            <Link href={`/requests/${request.id}`}>
+                              <Button variant="ghost" size="sm">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                          </td>
+                        </tr>
+                        {/* Expanded details row */}
+                        {isExpanded && hasDetails && (
+                          <tr className="bg-muted/30">
+                            <td colSpan={9} className="py-3 px-4">
+                              <div className="space-y-2 ml-6">
+                                <div className="text-sm font-medium text-muted-foreground mb-2">Order Lines:</div>
+                                {request.order_lines?.map((line, index) => (
+                                  <div key={index} className="text-sm pl-2 border-l-2 border-muted">
+                                    <div className="font-medium">{line.description}</div>
+                                    {line.detailed_description && (
+                                      <div className="text-muted-foreground text-xs mt-1 whitespace-pre-wrap">
+                                        {line.detailed_description}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

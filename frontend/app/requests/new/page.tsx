@@ -36,6 +36,13 @@ function NewRequestContent() {
         commodity_group_id: data.commodity_group_id || undefined,
         department: data.department || undefined,
         notes: data.notes || undefined,
+        // Include terms from parsed offer
+        offer_date: parsedOffer?.offer_date || undefined,
+        payment_terms: parsedOffer?.payment_terms || undefined,
+        delivery_terms: parsedOffer?.delivery_terms || undefined,
+        validity_period: parsedOffer?.validity_period || undefined,
+        warranty_terms: parsedOffer?.warranty_terms || undefined,
+        other_terms: parsedOffer?.other_terms || undefined,
         order_lines: data.order_lines.map((line) => ({
           line_type: line.line_type || 'standard',
           description: line.item, // Form's "item" maps to backend's "description"

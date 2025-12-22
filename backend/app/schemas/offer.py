@@ -238,6 +238,8 @@ class OfferParseResponse(BaseModel):
 
     vendor_name: str = Field(..., description="Extracted vendor name")
     vat_id: Optional[str] = Field(None, description="Extracted VAT ID")
+    offer_date: Optional[str] = Field(None, description="Date of the vendor offer")
+    offer_number: Optional[str] = Field(None, description="Vendor's offer/quote reference number")
     currency: str = Field(default="EUR", description="Currency of the offer")
     order_lines: List[ParsedOrderLine] = Field(
         default=[],

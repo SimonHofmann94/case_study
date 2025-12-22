@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Trash2, Loader2, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Loader2, Sparkles, Calendar, FileText, Clock, Truck, Shield, Info } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -556,6 +556,96 @@ export function RequestForm({
             </div>
           </CardContent>
         </Card>
+
+        {/* Offer Details & Terms - shown when extracted from parsed offer */}
+        {parsedOffer && (parsedOffer.offer_date || parsedOffer.offer_number || parsedOffer.payment_terms || parsedOffer.delivery_terms || parsedOffer.validity_period || parsedOffer.warranty_terms || parsedOffer.other_terms) && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Offer Details & Terms
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Offer metadata */}
+              {(parsedOffer.offer_date || parsedOffer.offer_number) && (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {parsedOffer.offer_date && (
+                    <div className="flex items-start gap-2">
+                      <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Offer Date</p>
+                        <p className="text-sm text-muted-foreground">{parsedOffer.offer_date}</p>
+                      </div>
+                    </div>
+                  )}
+                  {parsedOffer.offer_number && (
+                    <div className="flex items-start gap-2">
+                      <FileText className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Offer Number</p>
+                        <p className="text-sm text-muted-foreground">{parsedOffer.offer_number}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Terms grid */}
+              {(parsedOffer.payment_terms || parsedOffer.delivery_terms || parsedOffer.validity_period || parsedOffer.warranty_terms) && (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {parsedOffer.payment_terms && (
+                    <div className="flex items-start gap-2">
+                      <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Payment Terms</p>
+                        <p className="text-sm text-muted-foreground">{parsedOffer.payment_terms}</p>
+                      </div>
+                    </div>
+                  )}
+                  {parsedOffer.delivery_terms && (
+                    <div className="flex items-start gap-2">
+                      <Truck className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Delivery Terms</p>
+                        <p className="text-sm text-muted-foreground">{parsedOffer.delivery_terms}</p>
+                      </div>
+                    </div>
+                  )}
+                  {parsedOffer.validity_period && (
+                    <div className="flex items-start gap-2">
+                      <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Valid Until</p>
+                        <p className="text-sm text-muted-foreground">{parsedOffer.validity_period}</p>
+                      </div>
+                    </div>
+                  )}
+                  {parsedOffer.warranty_terms && (
+                    <div className="flex items-start gap-2">
+                      <Shield className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Warranty</p>
+                        <p className="text-sm text-muted-foreground">{parsedOffer.warranty_terms}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Other terms */}
+              {parsedOffer.other_terms && (
+                <div className="flex items-start gap-2">
+                  <Info className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Other Terms</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{parsedOffer.other_terms}</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <FormField
           control={form.control}

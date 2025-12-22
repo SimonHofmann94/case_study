@@ -79,6 +79,37 @@ class RequestBase(BaseModel):
         ge=0,
         description="Total tax amount on items",
     )
+    # Offer metadata
+    offer_date: Optional[str] = Field(
+        None,
+        max_length=50,
+        description="Date of the vendor offer",
+    )
+    # Terms and conditions
+    payment_terms: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="Payment terms (e.g., '30 days net')",
+    )
+    delivery_terms: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="Delivery time or terms",
+    )
+    validity_period: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="How long the offer is valid",
+    )
+    warranty_terms: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="Warranty information",
+    )
+    other_terms: Optional[str] = Field(
+        None,
+        description="Any other important terms or conditions",
+    )
     notes: Optional[str] = Field(
         None,
         description="Optional additional notes",
@@ -190,6 +221,37 @@ class RequestUpdate(BaseModel):
         None,
         ge=0,
         description="Total tax amount on items",
+    )
+    # Offer metadata
+    offer_date: Optional[str] = Field(
+        None,
+        max_length=50,
+        description="Date of the vendor offer",
+    )
+    # Terms and conditions
+    payment_terms: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="Payment terms (e.g., '30 days net')",
+    )
+    delivery_terms: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="Delivery time or terms",
+    )
+    validity_period: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="How long the offer is valid",
+    )
+    warranty_terms: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="Warranty information",
+    )
+    other_terms: Optional[str] = Field(
+        None,
+        description="Any other important terms or conditions",
     )
     notes: Optional[str] = Field(
         None,

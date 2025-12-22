@@ -129,6 +129,14 @@ export interface ProcurementRequest {
   delivery_tax_amount?: number;
   tax_rate?: number;
   tax_amount?: number;
+  // Offer metadata
+  offer_date?: string | null;
+  // Terms and conditions
+  payment_terms?: string | null;
+  delivery_terms?: string | null;
+  validity_period?: string | null;
+  warranty_terms?: string | null;
+  other_terms?: string | null;
   status: RequestStatus;
   notes: string | null;
   order_lines: OrderLine[];
@@ -149,6 +157,14 @@ export interface CreateRequestData {
   delivery_tax_amount?: number;
   tax_rate?: number;
   tax_amount?: number;
+  // Offer metadata
+  offer_date?: string;
+  // Terms and conditions
+  payment_terms?: string;
+  delivery_terms?: string;
+  validity_period?: string;
+  warranty_terms?: string;
+  other_terms?: string;
   notes?: string;
   order_lines: Omit<OrderLine, 'id' | 'total_price'>[];
 }
@@ -311,6 +327,8 @@ export interface ParsedOrderLine {
 export interface ParsedOffer {
   vendor_name: string | null;
   vat_id: string | null;
+  offer_date?: string | null;
+  offer_number?: string | null;
   currency: string;
   order_lines: ParsedOrderLine[];
   subtotal_net?: number;
@@ -320,11 +338,19 @@ export interface ParsedOffer {
   tax_rate?: number;
   tax_amount?: number;
   total_gross?: number;
+  // Terms and conditions
+  payment_terms?: string | null;
+  delivery_terms?: string | null;
+  validity_period?: string | null;
+  warranty_terms?: string | null;
+  other_terms?: string | null;
 }
 
 export interface OfferParseResponse {
   vendor_name: string;
   vat_id: string | null;
+  offer_date: string | null;
+  offer_number: string | null;
   currency: string;
   order_lines: ParsedOrderLine[];
   subtotal_net?: number;
@@ -334,6 +360,13 @@ export interface OfferParseResponse {
   tax_rate?: number;
   tax_amount?: number;
   total_gross?: number;
+  // Terms and conditions
+  payment_terms?: string | null;
+  delivery_terms?: string | null;
+  validity_period?: string | null;
+  warranty_terms?: string | null;
+  other_terms?: string | null;
+  // Metadata
   token_savings: {
     json_chars: number;
     toon_chars: number;

@@ -131,6 +131,8 @@ async def parse_offer(
         return OfferParseResponse(
             vendor_name=parsed_offer.vendor_name,
             vat_id=parsed_offer.vat_id,
+            offer_date=parsed_offer.offer_date,
+            offer_number=parsed_offer.offer_number,
             currency=parsed_offer.currency,
             order_lines=parsed_offer.order_lines,
             subtotal_net=parsed_offer.subtotal_net,
