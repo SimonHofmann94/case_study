@@ -58,7 +58,10 @@ class ValidationService:
 
     @classmethod
     def calculate_order_line_total(
-        cls, unit_price: Decimal, amount: Decimal
+        cls,
+        unit_price: Decimal,
+        amount: Decimal,
+        discount_percent: Optional[Decimal] = None,
     ) -> Decimal:
         """
         Calculate total price for an order line.
@@ -66,11 +69,15 @@ class ValidationService:
         Args:
             unit_price: Price per unit
             amount: Quantity
+            discount_percent: Optional discount percentage (0-100)
 
         Returns:
             Total price rounded to 2 decimal places
         """
         total = Decimal(str(unit_price)) * Decimal(str(amount))
+        if discount_percent:
+            discount_multiplier = Decimal("1") - (Decimal(str(discount_percent)) / Decimal("100"))
+            total = total * discount_multiplier
         return total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     @classmethod
@@ -109,6 +116,9 @@ class ValidationService:
         """
         Calculate total cost for a request from its order lines.
 
+        Only includes "standard" line types in the total.
+        Alternative and optional lines are excluded.
+
         Args:
             order_lines: List of order lines
 
@@ -117,8 +127,12 @@ class ValidationService:
         """
         total = Decimal("0.00")
         for line in order_lines:
-            line_total = cls.calculate_order_line_total(line.unit_price, line.amount)
-            total += line_total
+            # Only include standard lines in total
+            if line.line_type == "standard":
+                line_total = cls.calculate_order_line_total(
+                    line.unit_price, line.amount, line.discount_percent
+                )
+                total += line_total
 
         return total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 

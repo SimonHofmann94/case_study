@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { ProcurementDashboard } from '@/components/procurement/ProcurementDashboard';
+import { PageInfoButton, PAGE_INFO } from '@/components/PageInfoButton';
 
 // Requestor Dashboard - for regular users
 function RequestorDashboard() {
@@ -38,9 +39,12 @@ function RequestorDashboard() {
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold tracking-tight">
-            Welcome back, {user?.full_name?.split(' ')[0]}!
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-3xl font-bold tracking-tight">
+              Welcome back, {user?.full_name?.split(' ')[0]}!
+            </h2>
+            <PageInfoButton {...PAGE_INFO.requestorDashboard} />
+          </div>
           <p className="text-muted-foreground mt-2">
             Create and track your procurement requests.
           </p>
@@ -117,9 +121,12 @@ function ProcurementTeamDashboard() {
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold tracking-tight">
-            Procurement Dashboard
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-3xl font-bold tracking-tight">
+              Procurement Dashboard
+            </h2>
+            <PageInfoButton {...PAGE_INFO.procurementDashboard} />
+          </div>
           <p className="text-muted-foreground mt-2">
             Review and manage procurement requests from all departments.
           </p>

@@ -85,8 +85,22 @@ class RequestService:
             if not commodity_group:
                 raise ValidationError(f"Commodity group {data.commodity_group_id} not found")
 
-        # Calculate total cost from order lines
-        total_cost = ValidationService.calculate_request_total(data.order_lines)
+        # Calculate total cost from order lines (subtotal of standard items)
+        subtotal_from_lines = ValidationService.calculate_request_total(data.order_lines)
+
+        # Use provided subtotal_net or calculate from lines
+        subtotal_net = data.subtotal_net if data.subtotal_net is not None else subtotal_from_lines
+
+        # Calculate total_cost (gross total including delivery and tax)
+        total_cost = subtotal_net
+        if data.discount_total:
+            total_cost -= data.discount_total
+        if data.delivery_cost_net:
+            total_cost += data.delivery_cost_net
+        if data.tax_amount:
+            total_cost += data.tax_amount
+        if data.delivery_tax_amount:
+            total_cost += data.delivery_tax_amount
 
         # Create the request
         request = Request(
@@ -96,7 +110,24 @@ class RequestService:
             vat_id=data.vat_id.upper(),
             commodity_group_id=data.commodity_group_id,
             department=data.department,
+            currency=data.currency,
+            # Financial fields
             total_cost=total_cost,
+            subtotal_net=subtotal_net,
+            discount_total=data.discount_total,
+            delivery_cost_net=data.delivery_cost_net,
+            delivery_tax_amount=data.delivery_tax_amount,
+            tax_rate=data.tax_rate,
+            tax_amount=data.tax_amount,
+            # Offer metadata
+            offer_date=data.offer_date,
+            # Terms and conditions
+            payment_terms=data.payment_terms,
+            delivery_terms=data.delivery_terms,
+            validity_period=data.validity_period,
+            warranty_terms=data.warranty_terms,
+            other_terms=data.other_terms,
+            # Status and notes
             status=RequestStatus.OPEN,
             notes=data.notes,
         )
@@ -108,13 +139,18 @@ class RequestService:
             line_total = ValidationService.calculate_order_line_total(
                 line_data.unit_price,
                 line_data.amount,
+                line_data.discount_percent,
             )
             order_line = OrderLine(
                 request_id=request.id,
+                line_type=line_data.line_type,
                 description=line_data.description,
+                detailed_description=line_data.detailed_description,
                 unit_price=line_data.unit_price,
                 amount=line_data.amount,
                 unit=line_data.unit,
+                discount_percent=line_data.discount_percent,
+                discount_amount=line_data.discount_amount,
                 total_price=line_total,
             )
             self.db.add(order_line)

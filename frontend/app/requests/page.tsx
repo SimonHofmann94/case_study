@@ -8,6 +8,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { RequestList } from '@/components/requests/RequestList';
 import { Button } from '@/components/ui/button';
 import { RequestStatus } from '@/lib/api';
+import { PageInfoButton, PAGE_INFO } from '@/components/PageInfoButton';
 
 function RequestsContent() {
   const [statusFilter, setStatusFilter] = useState<RequestStatus | undefined>(undefined);
@@ -27,9 +28,12 @@ function RequestsContent() {
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">Requests</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold tracking-tight">My Requests</h1>
+            <PageInfoButton {...PAGE_INFO.requestOverview} />
+          </div>
           <p className="text-muted-foreground mt-2">
-            View and manage procurement requests.
+            View and manage your procurement requests.
           </p>
         </div>
 

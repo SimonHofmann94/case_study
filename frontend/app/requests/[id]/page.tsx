@@ -20,6 +20,7 @@ import {
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { StatusBadge } from '@/components/requests/StatusBadge';
 import { Button } from '@/components/ui/button';
+import { PageInfoButton, PAGE_INFO } from '@/components/PageInfoButton';
 import {
   Card,
   CardContent,
@@ -236,7 +237,14 @@ function RequestDetailContent({ id }: { id: string }) {
 
         <div className="flex items-start justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{request.title}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold tracking-tight">{request.title}</h1>
+              <PageInfoButton
+                {...(isProcurementTeam
+                  ? PAGE_INFO.requestDetailProcurement
+                  : PAGE_INFO.requestDetail)}
+              />
+            </div>
             <p className="text-muted-foreground mt-2">
               Request #{request.id} • Created{' '}
               {new Date(request.created_at).toLocaleDateString()}
@@ -358,14 +366,81 @@ function RequestDetailContent({ id }: { id: string }) {
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="font-semibold">
+                  {/* Subtotal */}
+                  <tr className="text-sm">
+                    <td colSpan={4} className="py-2 pr-4 text-right text-muted-foreground">
+                      Subtotal (net)
+                    </td>
+                    <td className="py-2 pl-4 text-right">
+                      {(request.subtotal_net ?? request.order_lines?.reduce((sum, line) =>
+                        sum + (line.total_price || line.unit_price * line.amount), 0) ?? 0
+                      ).toLocaleString('de-DE', {
+                        style: 'currency',
+                        currency: request.currency || 'EUR',
+                      })}
+                    </td>
+                  </tr>
+                  {/* Discount */}
+                  {request.discount_total && Number(request.discount_total) > 0 && (
+                    <tr className="text-sm text-green-600">
+                      <td colSpan={4} className="py-2 pr-4 text-right">
+                        Discount
+                      </td>
+                      <td className="py-2 pl-4 text-right">
+                        -{Number(request.discount_total).toLocaleString('de-DE', {
+                          style: 'currency',
+                          currency: request.currency || 'EUR',
+                        })}
+                      </td>
+                    </tr>
+                  )}
+                  {/* Delivery */}
+                  {request.delivery_cost_net && Number(request.delivery_cost_net) > 0 && (
+                    <tr className="text-sm">
+                      <td colSpan={4} className="py-2 pr-4 text-right text-muted-foreground">
+                        Delivery
+                        {request.delivery_tax_amount && Number(request.delivery_tax_amount) > 0 && (
+                          <span className="text-xs ml-1">
+                            (incl. {Number(request.delivery_tax_amount).toLocaleString('de-DE', {
+                              style: 'currency',
+                              currency: request.currency || 'EUR'
+                            })} tax)
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 pl-4 text-right">
+                        {Number(request.delivery_cost_net).toLocaleString('de-DE', {
+                          style: 'currency',
+                          currency: request.currency || 'EUR',
+                        })}
+                      </td>
+                    </tr>
+                  )}
+                  {/* Tax */}
+                  {(request.tax_amount || request.tax_rate) && (
+                    <tr className="text-sm">
+                      <td colSpan={4} className="py-2 pr-4 text-right text-muted-foreground">
+                        Tax {request.tax_rate ? `(${Number(request.tax_rate)}%)` : ''}
+                      </td>
+                      <td className="py-2 pl-4 text-right">
+                        {request.tax_amount
+                          ? Number(request.tax_amount).toLocaleString('de-DE', {
+                              style: 'currency',
+                              currency: request.currency || 'EUR',
+                            })
+                          : '-'}
+                      </td>
+                    </tr>
+                  )}
+                  {/* Total */}
+                  <tr className="font-semibold border-t">
                     <td colSpan={4} className="py-3 pr-4 text-right">
-                      Total
+                      Total (gross)
                     </td>
                     <td className="py-3 pl-4 text-right">
                       {request.total_cost.toLocaleString('de-DE', {
                         style: 'currency',
-                        currency: 'EUR',
+                        currency: request.currency || 'EUR',
                       })}
                     </td>
                   </tr>

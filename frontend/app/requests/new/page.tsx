@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCreateRequest } from '@/hooks/useRequests';
 import { ParsedOffer } from '@/lib/api';
+import { PageInfoButton, PAGE_INFO } from '@/components/PageInfoButton';
 
 function NewRequestContent() {
   const router = useRouter();
@@ -36,6 +37,14 @@ function NewRequestContent() {
         commodity_group_id: data.commodity_group_id || undefined,
         department: data.department || undefined,
         notes: data.notes || undefined,
+        // Include financial data from parsed offer
+        currency: parsedOffer?.currency || 'EUR',
+        subtotal_net: parsedOffer?.subtotal_net,
+        discount_total: parsedOffer?.discount_total,
+        delivery_cost_net: parsedOffer?.delivery_cost_net,
+        delivery_tax_amount: parsedOffer?.delivery_tax_amount,
+        tax_rate: parsedOffer?.tax_rate,
+        tax_amount: parsedOffer?.tax_amount,
         // Include terms from parsed offer
         offer_date: parsedOffer?.offer_date || undefined,
         payment_terms: parsedOffer?.payment_terms || undefined,
@@ -85,7 +94,10 @@ function NewRequestContent() {
 
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">New Request</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold tracking-tight">New Request</h1>
+            <PageInfoButton {...PAGE_INFO.newRequest} />
+          </div>
           <p className="text-muted-foreground mt-2">
             Upload a vendor offer to auto-fill the form, or enter details manually.
           </p>
