@@ -88,7 +88,7 @@ class CommodityClassificationService:
                 api_key=settings.OPENAI_API_KEY,
                 model=settings.OPENAI_MODEL,
                 temperature=settings.OPENAI_TEMPERATURE,
-                max_tokens=500,  # Classification needs fewer tokens
+                max_tokens=500,
             )
             self.parser = StrOutputParser()
             self.ai_enabled = True
@@ -263,8 +263,20 @@ Available Commodity Groups:
 
             # Call LLM
             response = await self.llm.ainvoke(messages)
-            logger.info(f"LLM response: {response.content[:200]}")
-            parsed = self._parse_response(response.content)
+            logger.info(f"LLM response type: {type(response)}")
+
+            # Handle different response formats
+            if hasattr(response, 'content'):
+                content = response.content
+            elif isinstance(response, str):
+                content = response
+            elif isinstance(response, dict):
+                content = response.get('content', '') or response.get('text', '')
+            else:
+                content = str(response)
+
+            logger.info(f"LLM content: {content[:200] if content else 'EMPTY'}")
+            parsed = self._parse_response(content)
             logger.info(f"Parsed classification: {parsed}")
 
             # Find the commodity group

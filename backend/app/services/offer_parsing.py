@@ -399,7 +399,24 @@ class OfferParsingService:
 
         try:
             response = await self.llm.ainvoke(messages)
-            return response.content
+            logger.info(f"LLM response type: {type(response)}")
+            logger.info(f"LLM response: {response}")
+
+            # Handle different response formats
+            if hasattr(response, 'content'):
+                content = response.content
+            elif isinstance(response, str):
+                content = response
+            elif isinstance(response, dict):
+                content = response.get('content', '') or response.get('text', '')
+            else:
+                content = str(response)
+
+            if not content:
+                logger.error(f"Empty response from LLM. Full response object: {response}")
+                raise ValueError("LLM returned empty response")
+
+            return content
         except Exception as e:
             logger.error(f"LLM call failed: {e}")
             raise
