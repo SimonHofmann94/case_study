@@ -1,12 +1,21 @@
 """
 Security utilities for authentication.
 
-This module provides password hashing with bcrypt and JWT token management.
+This module provides:
+- Password hashing with bcrypt (12 rounds)
+- JWT token creation and validation
+- Token revocation support via JTI (JWT ID)
+- Password strength validation
+
+Security notes:
+- Tokens include a unique JTI for revocation tracking
+- Passwords require minimum complexity (8+ chars, mixed case, digit)
+- bcrypt with 12 rounds provides strong protection against brute force
 """
 
 from datetime import datetime, timedelta
 from typing import Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import bcrypt
 from jose import JWTError, jwt
@@ -60,7 +69,10 @@ def create_access_token(
     expires_delta: Optional[timedelta] = None,
 ) -> str:
     """
-    Create a JWT access token.
+    Create a JWT access token with unique identifier for revocation support.
+
+    The token includes a JTI (JWT ID) which is a unique identifier that allows
+    the token to be individually revoked without invalidating all user tokens.
 
     Args:
         user_id: User's unique identifier
@@ -70,6 +82,14 @@ def create_access_token(
 
     Returns:
         str: Encoded JWT token
+
+    Token claims:
+        - sub: User ID (subject)
+        - email: User's email
+        - role: User's role
+        - exp: Expiration timestamp
+        - iat: Issued at timestamp
+        - jti: Unique token ID (for revocation)
 
     Example:
         token = create_access_token(
@@ -85,12 +105,16 @@ def create_access_token(
             minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
         )
 
+    # Generate unique token ID for revocation tracking
+    token_jti = str(uuid4())
+
     to_encode = {
         "sub": str(user_id),  # Subject (user ID)
         "email": email,
         "role": role.value,
         "exp": expire,  # Expiration time
         "iat": datetime.utcnow(),  # Issued at
+        "jti": token_jti,  # Unique token ID for revocation
     }
 
     encoded_jwt = jwt.encode(

@@ -3,6 +3,12 @@ Main FastAPI application entry point.
 
 This module sets up the FastAPI application with all necessary middleware,
 routers, and configuration for the Procurement AI MVP.
+
+Security measures configured here:
+- CORS: Restricts which origins can access the API
+- Security Headers: Protects against common web vulnerabilities
+- Rate Limiting: Prevents abuse and DoS attacks
+- Sentry: Error tracking and monitoring
 """
 
 from fastapi import FastAPI, Request
@@ -16,6 +22,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.utils.rate_limit import limiter
+from app.middleware.security import SecurityHeadersMiddleware
 
 # Import all models to register them with SQLAlchemy before importing routers
 # This ensures relationship strings can be resolved
@@ -60,14 +67,34 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configure CORS
+# Why: Controls which origins (domains) can access this API
+# - allow_origins: Only specified frontend origins can make requests
+# - allow_credentials: Allows cookies/auth headers to be sent
+# - allow_methods: Restricts HTTP methods to only what we need
+# - allow_headers: Explicitly list headers instead of "*" for security
+# - expose_headers: Headers the browser can access from the response
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_headers=[
+        "Authorization",      # JWT tokens
+        "Content-Type",       # JSON/form data
+        "Accept",             # Content negotiation
+        "Origin",             # CORS origin header
+        "X-Requested-With",   # AJAX identifier
+    ],
+    expose_headers=[
+        "Content-Length",     # Response size
+        "X-Request-ID",       # Request tracking (if implemented)
+    ],
 )
+
+# Add security headers to all responses
+# Why: Protects against clickjacking, XSS, MIME-sniffing, and other attacks
+# See app/middleware/security.py for detailed documentation
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 @app.get("/", tags=["Health"])

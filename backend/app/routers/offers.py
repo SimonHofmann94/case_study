@@ -3,6 +3,12 @@ Offer parsing API router.
 
 This module provides API endpoints for uploading and parsing
 vendor offer documents using AI.
+
+Security measures:
+- File type validation (allowlist)
+- File size limits
+- Filename sanitization
+- Rate limiting on AI operations
 """
 
 import logging
@@ -28,6 +34,7 @@ from app.services.commodity_classification import (
 )
 from app.utils.pdf_extractor import extract_text_from_pdf, extract_text_from_file
 from app.utils.rate_limit import limiter
+from app.utils.file_security import validate_upload_filename, sanitize_filename
 
 logger = logging.getLogger(__name__)
 
@@ -35,13 +42,39 @@ router = APIRouter(prefix="/offers", tags=["Offers"])
 
 
 def validate_file(file: UploadFile) -> None:
-    """Validate uploaded file type and size."""
-    # Check content type
+    """
+    Validate uploaded file for security and compatibility.
+
+    Checks:
+    1. Content type is in the allowlist
+    2. Filename doesn't contain path traversal attempts
+    3. Filename doesn't have dangerous extensions
+
+    Why: Prevents upload of malicious files and path traversal attacks.
+
+    Args:
+        file: The uploaded file to validate
+
+    Raises:
+        HTTPException: If file fails validation
+    """
+    # Check content type against allowlist
     if file.content_type not in settings.ALLOWED_FILE_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid file type: {file.content_type}. Allowed: {settings.ALLOWED_FILE_TYPES}",
         )
+
+    # Validate filename for security issues
+    # Why: Prevents path traversal attacks like "../../../etc/passwd"
+    if file.filename:
+        is_valid, error_msg = validate_upload_filename(file.filename)
+        if not is_valid:
+            logger.warning(f"Rejected upload with invalid filename: {file.filename}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg,
+            )
 
     # We can't check size before reading for streaming uploads
     # Size validation happens during read

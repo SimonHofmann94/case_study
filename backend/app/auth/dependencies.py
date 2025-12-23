@@ -3,8 +3,15 @@ Authentication dependencies for FastAPI routes.
 
 This module provides dependency functions for protecting routes and
 extracting the current user from JWT tokens.
+
+Security features:
+- JWT token validation
+- Token blacklist checking (for logout support)
+- User active status verification
+- Role-based access control
 """
 
+from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
@@ -13,12 +20,32 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.auth.models import User, UserRole
+from app.auth.models import User, UserRole, TokenBlacklist
 from app.auth.schemas import TokenData
 from app.auth.security import decode_token
 
 # HTTP Bearer token security scheme
 security = HTTPBearer()
+
+
+def is_token_blacklisted(db: Session, token_jti: str) -> bool:
+    """
+    Check if a token has been revoked (blacklisted).
+
+    Why: When users log out, their token is added to the blacklist.
+    We check this on every request to prevent use of revoked tokens.
+
+    Args:
+        db: Database session
+        token_jti: JWT ID (unique token identifier)
+
+    Returns:
+        bool: True if token is blacklisted (should be rejected)
+    """
+    blacklisted = db.query(TokenBlacklist).filter(
+        TokenBlacklist.token_jti == token_jti
+    ).first()
+    return blacklisted is not None
 
 
 async def get_current_user(
@@ -31,8 +58,9 @@ async def get_current_user(
     This dependency:
     1. Extracts the JWT token from the Authorization header
     2. Validates and decodes the token
-    3. Fetches the user from the database
-    4. Verifies the user is active
+    3. Checks if the token has been revoked (logout)
+    4. Fetches the user from the database
+    5. Verifies the user is active
 
     Args:
         credentials: HTTP Bearer token from Authorization header
@@ -42,7 +70,7 @@ async def get_current_user(
         User: The authenticated user
 
     Raises:
-        HTTPException: 401 if token is invalid or user not found/inactive
+        HTTPException: 401 if token is invalid, revoked, or user not found/inactive
 
     Example:
         @app.get("/protected")
@@ -67,6 +95,16 @@ async def get_current_user(
     user_id_str: Optional[str] = payload.get("sub")
     if user_id_str is None:
         raise credentials_exception
+
+    # Check if token has been revoked (user logged out)
+    # Why: Even valid tokens should be rejected if user explicitly logged out
+    token_jti = payload.get("jti")
+    if token_jti and is_token_blacklisted(db, token_jti):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     try:
         user_id = UUID(user_id_str)
