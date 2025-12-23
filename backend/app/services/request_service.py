@@ -611,3 +611,45 @@ class RequestService:
         self.db.refresh(status_history)
 
         return status_history
+
+    def update_commodity_group(
+        self,
+        request_id: UUID,
+        commodity_group_id: UUID,
+    ) -> Request:
+        """
+        Update the commodity group for a request (procurement team only).
+
+        Args:
+            request_id: ID of the request
+            commodity_group_id: New commodity group ID
+
+        Returns:
+            Updated Request object
+
+        Raises:
+            RequestNotFoundError: If request doesn't exist
+            ValidationError: If commodity group doesn't exist
+        """
+        request = self.db.query(Request).options(
+            joinedload(Request.commodity_group),
+        ).filter(Request.id == request_id).first()
+
+        if not request:
+            raise RequestNotFoundError(f"Request {request_id} not found")
+
+        # Verify commodity group exists
+        commodity_group = self.db.query(CommodityGroup).filter(
+            CommodityGroup.id == commodity_group_id
+        ).first()
+        if not commodity_group:
+            raise ValidationError(f"Commodity group {commodity_group_id} not found")
+
+        # Update the commodity group
+        request.commodity_group_id = commodity_group_id
+        request.updated_at = datetime.utcnow()
+
+        self.db.commit()
+        self.db.refresh(request)
+
+        return request

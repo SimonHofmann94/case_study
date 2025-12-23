@@ -116,3 +116,17 @@ export function useAddProcurementNote() {
     },
   });
 }
+
+export function useUpdateCommodityGroup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, commodityGroupId }: { id: string; commodityGroupId: string }) =>
+      requestsApi.updateCommodityGroup(id, commodityGroupId),
+    onSuccess: (data: ProcurementRequest) => {
+      queryClient.invalidateQueries({ queryKey: ['request', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['requests'] });
+      queryClient.invalidateQueries({ queryKey: ['request-analytics'] });
+    },
+  });
+}

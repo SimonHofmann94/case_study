@@ -368,6 +368,45 @@ async def add_procurement_note(
         )
 
 
+@router.put(
+    "/{request_id}/commodity-group",
+    response_model=RequestDetailResponse,
+    summary="Update commodity group",
+    description="Update the commodity group for a request. Procurement team only.",
+)
+@limiter.limit("100/hour")
+async def update_commodity_group(
+    request: Request,
+    request_id: UUID,
+    commodity_group_id: UUID = Query(..., description="New commodity group ID"),
+    current_user: User = Depends(get_procurement_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Update the commodity group for a request.
+
+    - Only procurement team members can update commodity group
+    - Used to correct AI-suggested commodity groups
+    """
+    service = RequestService(db)
+    try:
+        updated_request = service.update_commodity_group(
+            request_id=request_id,
+            commodity_group_id=commodity_group_id,
+        )
+        return updated_request
+    except RequestNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
 @router.get(
     "/{request_id}/history",
     response_model=list[StatusHistoryResponse],

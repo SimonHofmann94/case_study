@@ -43,11 +43,13 @@ import {
   useUpdateRequestStatus,
   useDeleteRequest,
   useAddProcurementNote,
+  useUpdateCommodityGroup,
 } from '@/hooks/useRequests';
+import { useCommodityGroups } from '@/hooks/useCommodityGroups';
 import { RequestStatus } from '@/lib/api';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { MessageSquarePlus, Send } from 'lucide-react';
+import { MessageSquarePlus, Send, Pencil, Check, X } from 'lucide-react';
 
 const statusTransitions: Record<RequestStatus, RequestStatus[]> = {
   open: ['in_progress', 'closed'],
@@ -63,16 +65,47 @@ function RequestDetailContent({ id }: { id: string }) {
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<RequestStatus | null>(null);
   const [showStatusConfirm, setShowStatusConfirm] = useState(false);
+  const [isEditingCommodityGroup, setIsEditingCommodityGroup] = useState(false);
+  const [selectedCommodityGroupId, setSelectedCommodityGroupId] = useState<string | null>(null);
 
   const { data: request, isLoading, error: fetchError } = useRequest(id);
   const { data: history } = useRequestHistory(id);
+  const { data: commodityGroups } = useCommodityGroups();
   const updateStatus = useUpdateRequestStatus();
   const deleteRequest = useDeleteRequest();
   const addNote = useAddProcurementNote();
+  const updateCommodityGroup = useUpdateCommodityGroup();
 
   const isProcurementTeam = user?.role === 'procurement_team';
   const canDelete = request?.status === 'open';
   const backUrl = isProcurementTeam ? '/dashboard' : '/requests';
+
+  const handleCommodityGroupSave = async () => {
+    if (!selectedCommodityGroupId) return;
+
+    setError(null);
+    try {
+      await updateCommodityGroup.mutateAsync({
+        id,
+        commodityGroupId: selectedCommodityGroupId,
+      });
+      setIsEditingCommodityGroup(false);
+      setSelectedCommodityGroupId(null);
+    } catch (err) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      setError(error.response?.data?.detail || 'Failed to update commodity group');
+    }
+  };
+
+  const handleCommodityGroupCancel = () => {
+    setIsEditingCommodityGroup(false);
+    setSelectedCommodityGroupId(null);
+  };
+
+  const handleStartEditCommodityGroup = () => {
+    setSelectedCommodityGroupId(request?.commodity_group_id || null);
+    setIsEditingCommodityGroup(true);
+  };
 
   const handleAddNote = async () => {
     if (!noteText.trim()) return;
@@ -310,9 +343,64 @@ function RequestDetailContent({ id }: { id: string }) {
               </div>
               <div>
                 <span className="text-muted-foreground">Commodity Group:</span>{' '}
-                {request.commodity_group
-                  ? `${request.commodity_group.category} - ${request.commodity_group.name}`
-                  : 'Not specified'}
+                {isEditingCommodityGroup ? (
+                  <div className="mt-2 flex items-center gap-2">
+                    <Select
+                      value={selectedCommodityGroupId || ''}
+                      onValueChange={setSelectedCommodityGroupId}
+                    >
+                      <SelectTrigger className="w-[300px]">
+                        <SelectValue placeholder="Select commodity group" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {commodityGroups?.map((group) => (
+                          <SelectItem key={group.id} value={group.id}>
+                            {group.category} - {group.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={handleCommodityGroupSave}
+                      disabled={updateCommodityGroup.isPending || !selectedCommodityGroupId}
+                      className="h-8 w-8 text-green-600 hover:text-green-700"
+                    >
+                      {updateCommodityGroup.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={handleCommodityGroupCancel}
+                      disabled={updateCommodityGroup.isPending}
+                      className="h-8 w-8 text-red-600 hover:text-red-700"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <span className="inline-flex items-center gap-2">
+                    {request.commodity_group
+                      ? `${request.commodity_group.category} - ${request.commodity_group.name}`
+                      : 'Not specified'}
+                    {isProcurementTeam && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={handleStartEditCommodityGroup}
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                        title="Edit commodity group"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </span>
+                )}
               </div>
             </CardContent>
           </Card>

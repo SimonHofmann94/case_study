@@ -291,6 +291,13 @@ export const requestsApi = {
     const response = await api.post<StatusHistoryEntry>(`/requests/${id}/notes`, { notes });
     return response.data;
   },
+
+  updateCommodityGroup: async (id: string, commodityGroupId: string): Promise<ProcurementRequest> => {
+    const response = await api.put<ProcurementRequest>(
+      `/requests/${id}/commodity-group?commodity_group_id=${commodityGroupId}`
+    );
+    return response.data;
+  },
 };
 
 // Commodity group API functions
